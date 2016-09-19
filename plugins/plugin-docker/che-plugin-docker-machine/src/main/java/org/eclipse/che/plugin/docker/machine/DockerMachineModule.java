@@ -16,6 +16,7 @@ import com.google.inject.multibindings.Multibinder;
 import com.google.inject.name.Names;
 
 import org.eclipse.che.api.core.model.machine.ServerConf;
+import org.eclipse.che.api.workspace.server.WorkspaceProjectStorageManager;
 
 import java.util.Set;
 
@@ -61,5 +62,6 @@ public class DockerMachineModule extends AbstractModule {
                                                                      new TypeLiteral<Set<String>>() {},
                                                                      Names.named("machine.docker.networks"))
                                                        .permitDuplicates();
+        bind(WorkspaceProjectStorageManager.class).to(LocalWorkspaceProjectStorageManagerImpl.class);
     }
 }

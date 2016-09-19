@@ -448,7 +448,7 @@ public class WorkspaceRuntimes {
     public void stopMachine(String workspaceId, String machineId) throws NotFoundException,
                                                                          ServerException,
                                                                          ConflictException {
-        try (StripedLocks.ReadLock lock = stripedLocks.acquireReadLock(workspaceId)) {
+        try (StripedLocks.ReadLock lock = stripedLocks.acquireReadLock(workspaceId)) {//todo where is unlock??? What a hell?
             WorkspaceState workspaceState = workspaces.get(workspaceId);
             if (workspaceState == null || workspaceState.status != WorkspaceStatus.RUNNING) {
                 throw new ConflictException(format("Environment of workspace '%s' is not running", workspaceId));
