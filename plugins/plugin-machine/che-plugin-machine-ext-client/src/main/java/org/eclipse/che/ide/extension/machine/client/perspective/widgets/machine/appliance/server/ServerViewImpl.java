@@ -41,7 +41,7 @@ public class ServerViewImpl extends Composite implements ServerView {
     @UiField(provided = true)
     final MachineLocalizationConstant locale;
     @UiField(provided = true)
-    final CellTable<Server>           servers;
+    final CellTable<ServerEntity>     servers;
 
     @Inject
     public ServerViewImpl(MachineLocalizationConstant locale, TableResources tableResources) {
@@ -52,34 +52,34 @@ public class ServerViewImpl extends Composite implements ServerView {
     }
 
     @NotNull
-    private CellTable<Server> createTable(@NotNull TableResources tableResources) {
-        CellTable<Server> table = new CellTable<>(0, tableResources);
+    private CellTable<ServerEntity> createTable(@NotNull TableResources tableResources) {
+        CellTable<ServerEntity> table = new CellTable<>(0, tableResources);
         table.setLoadingIndicator(null);
 
-        TextColumn<Server> ref = new TextColumn<Server>() {
+        TextColumn<ServerEntity> ref = new TextColumn<ServerEntity>() {
             @Override
-            public String getValue(Server server) {
+            public String getValue(ServerEntity server) {
                 return server.getRef();
             }
         };
 
-        TextColumn<Server> exposedPort = new TextColumn<Server>() {
+        TextColumn<ServerEntity> exposedPort = new TextColumn<ServerEntity>() {
             @Override
-            public String getValue(Server server) {
+            public String getValue(ServerEntity server) {
                 return server.getPort();
             }
         };
 
-        TextColumn<Server> address = new TextColumn<Server>() {
+        TextColumn<ServerEntity> address = new TextColumn<ServerEntity>() {
             @Override
-            public String getValue(Server server) {
+            public String getValue(ServerEntity server) {
                 return server.getAddress();
             }
         };
 
-        TextColumn<Server> url = new TextColumn<Server>() {
+        TextColumn<ServerEntity> url = new TextColumn<ServerEntity>() {
             @Override
-            public String getValue(Server server) {
+            public String getValue(ServerEntity server) {
                 return server.getUrl();
             }
         };
@@ -94,11 +94,11 @@ public class ServerViewImpl extends Composite implements ServerView {
 
     /** {@inheritDoc} */
     @Override
-    public void setServers(@NotNull List<Server> servers) {
-        List<Server> list = new ArrayList<>();
-        for (Server server : servers) {
-           if (!Constants.TERMINAL_REFERENCE.equals(server.getRef())){//TODO: temporary hide terminal URL  
-               list.add(server);
+    public void setServers(@NotNull List<ServerEntity> servers) {
+        List<ServerEntity> list = new ArrayList<>();
+        for (ServerEntity serverEntity : servers) {
+           if (!Constants.TERMINAL_REFERENCE.equals(serverEntity.getRef())){//TODO: temporary hide terminal URL
+               list.add(serverEntity);
            }
         }
         this.servers.setRowData(list);

@@ -15,6 +15,8 @@ import com.google.gwt.user.client.ui.AcceptsOneWidget;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 
+import org.eclipse.che.api.core.model.machine.Machine;
+import org.eclipse.che.api.core.model.workspace.Workspace;
 import org.eclipse.che.api.machine.shared.dto.MachineDto;
 import org.eclipse.che.api.machine.shared.dto.recipe.RecipeDescriptor;
 import org.eclipse.che.api.promises.client.Operation;
@@ -24,12 +26,13 @@ import org.eclipse.che.api.promises.client.js.Promises;
 import org.eclipse.che.ide.api.app.AppContext;
 import org.eclipse.che.ide.api.debug.DebugConfiguration;
 import org.eclipse.che.ide.api.debug.DebugConfigurationPage;
-import org.eclipse.che.ide.api.machine.MachineServiceClient;
 import org.eclipse.che.ide.api.machine.RecipeServiceClient;
 import org.eclipse.che.ide.dto.DtoFactory;
 import org.eclipse.che.ide.extension.machine.client.command.valueproviders.CurrentProjectPathProvider;
+import org.eclipse.che.ide.extension.machine.client.inject.factories.EntityFactory;
 import org.eclipse.che.ide.json.JsonHelper;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,8 +49,8 @@ public class GdbConfigurationPagePresenter implements GdbConfigurationPageView.A
     public static final String DEFAULT_EXECUTABLE_TARGET_NAME = "a.out";
 
     private final GdbConfigurationPageView   view;
-    private final MachineServiceClient       machineServiceClient;
     private final AppContext                 appContext;
+    private final EntityFactory              entityFactory;
     private final RecipeServiceClient        recipeServiceClient;
     private final DtoFactory                 dtoFactory;
     private final CurrentProjectPathProvider currentProjectPathProvider;
@@ -60,14 +63,14 @@ public class GdbConfigurationPagePresenter implements GdbConfigurationPageView.A
 
     @Inject
     public GdbConfigurationPagePresenter(GdbConfigurationPageView view,
-                                         MachineServiceClient machineServiceClient,
                                          AppContext appContext,
                                          DtoFactory dtoFactory,
+                                         EntityFactory entityFactory,
                                          RecipeServiceClient recipeServiceClient,
                                          CurrentProjectPathProvider currentProjectPathProvider) {
         this.view = view;
-        this.machineServiceClient = machineServiceClient;
         this.appContext = appContext;
+        this.entityFactory = entityFactory;
         this.recipeServiceClient = recipeServiceClient;
         this.dtoFactory = dtoFactory;
         this.currentProjectPathProvider = currentProjectPathProvider;
@@ -116,24 +119,38 @@ public class GdbConfigurationPagePresenter implements GdbConfigurationPageView.A
     }
 
     private void setHostsList() {
-        machineServiceClient.getMachines(appContext.getWorkspaceId()).then(new Operation<List<MachineDto>>() {
-            @Override
-            public void apply(List<MachineDto> machines) throws OperationException {
-                @SuppressWarnings("unchecked")
-                Promise<RecipeDescriptor>[] recipePromises = (Promise<RecipeDescriptor>[])new Promise[machines.size()];
+        List<Machine> machines = getMachines();
+        if (machines.isEmpty()) {
+            return;
+        }
 
-                for (int i = 0; i < machines.size(); i++) {
-                    String location = machines.get(i).getConfig().getSource().getLocation();
-                    String recipeId = getRecipeId(location);
-                    recipePromises[i] = recipeServiceClient.getRecipe(recipeId);
-                }
-
-                setHostsList(recipePromises, machines);
-            }
-        });
+        @SuppressWarnings("unchecked")
+        Promise<RecipeDescriptor>[] recipePromises = (Promise<RecipeDescriptor>[])new Promise[machines.size()];
+        for (int i = 0; i < machines.size(); i++) {
+            String location = machines.get(i).getConfig().getSource().getLocation();
+            String recipeId = getRecipeId(location);
+            recipePromises[i] = recipeServiceClient.getRecipe(recipeId);
+        }
+        setHostsList(recipePromises, machines);
     }
 
-    private void setHostsList(final Promise<RecipeDescriptor>[] recipePromises, final List<MachineDto> machines) {
+    private List<Machine> getMachines() {
+        List<Machine> machines = new ArrayList<>();
+        Workspace workspace = appContext.getWorkspace();
+        if (workspace == null || workspace.getRuntime() == null) {
+            return machines;
+        }
+
+        for (Machine currentMachine : workspace.getRuntime().getMachines()) {
+            if (currentMachine instanceof MachineDto) {
+                Machine machine = entityFactory.createMachine((MachineDto)currentMachine);
+                machines.add(machine);
+            }
+        }
+        return machines;
+    }
+
+    private void setHostsList(final Promise<RecipeDescriptor>[] recipePromises, final List<Machine> machines) {
         Promises.all(recipePromises).then(new Operation<JsArrayMixed>() {
             @Override
             public void apply(JsArrayMixed recipes) throws OperationException {

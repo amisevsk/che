@@ -13,14 +13,13 @@ package org.eclipse.che.ide.extension.machine.client.processes;
 import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;
 
-import org.eclipse.che.api.machine.shared.dto.MachineDto;
 import org.eclipse.che.commons.annotation.Nullable;
+import org.eclipse.che.ide.api.machine.MachineEntity;
 import org.eclipse.che.ide.ui.tree.TreeNodeElement;
 import org.eclipse.che.ide.util.UUID;
 import org.vectomatic.dom.svg.ui.SVGResource;
 
 import javax.validation.constraints.NotNull;
-
 import java.util.Collection;
 
 /**
@@ -67,8 +66,8 @@ public class ProcessTreeNode {
 
         switch (type) {
             case MACHINE_NODE:
-                id = ((MachineDto)data).getId();
-                displayName = ((MachineDto)data).getConfig().getName();
+                id = ((MachineEntity)data).getId();
+                displayName = ((MachineEntity)data).getConfig().getName();
                 break;
             case COMMAND_NODE:
                 id = data + UUID.uuid();
