@@ -38,6 +38,7 @@ import static org.eclipse.che.ide.extension.machine.client.machine.MachineStateE
  * Notifies about changing machine state.
  *
  * @author Artem Zatsarynnyi
+ * @author Roman Nikitenko
  */
 @Singleton
 public class MachineStatusHandler implements MachineStatusChangedEvent.Handler {
@@ -136,7 +137,6 @@ public class MachineStatusHandler implements MachineStatusChangedEvent.Handler {
             // Will be used later
             // loader.setProgress(LoaderPresenter.Phase.STARTING_WORKSPACE_RUNTIME, LoaderPresenter.Status.SUCCESS);
         }
-
         notificationManager.notify(locale.notificationMachineIsRunning(machine.getDisplayName()), SUCCESS, EMERGE_MODE);
         eventBus.fireEvent(new MachineStateEvent(machine, RUNNING));
     }

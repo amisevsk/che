@@ -126,7 +126,6 @@ public class GdbConfigurationPagePresenter implements GdbConfigurationPageView.A
 
         @SuppressWarnings("unchecked")
         Promise<RecipeDescriptor>[] recipePromises = (Promise<RecipeDescriptor>[])new Promise[machines.size()];
-
         for (int i = 0; i < machines.size(); i++) {
             String location = machines.get(i).getConfig().getSource().getLocation();
             String recipeId = getRecipeId(location);
@@ -137,7 +136,6 @@ public class GdbConfigurationPagePresenter implements GdbConfigurationPageView.A
 
     private List<Machine> getMachines() {
         List<Machine> machines = new ArrayList<>();
-
         Workspace workspace = appContext.getWorkspace();
         if (workspace == null || workspace.getRuntime() == null) {
             return machines;

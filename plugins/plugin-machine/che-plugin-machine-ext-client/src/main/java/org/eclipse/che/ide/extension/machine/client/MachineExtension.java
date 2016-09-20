@@ -89,10 +89,10 @@ public class MachineExtension {
                             final PerspectiveManager perspectiveManager,
                             final IconRegistry iconRegistry,
                             final CustomCommandType arbitraryCommandType,
-                            final Provider<MachineStatusHandler> machineStatusNotifierProvider,
+                            final Provider<MachineStatusHandler> machineStatusHandlerProvider,
                             final ProjectExplorerPresenter projectExplorerPresenter) {
         machineResources.getCss().ensureInjected();
-        machineStatusNotifierProvider.get();
+        machineStatusHandlerProvider.get();
 
         eventBus.addHandler(WsAgentStateEvent.TYPE, new WsAgentStateHandler() {
             @Override
