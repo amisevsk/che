@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.eclipse.che.ide.extension.machine.client.perspective.widgets.machine.appliance.server;
 
+import com.google.common.base.Predicate;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
@@ -19,13 +20,15 @@ import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.Widget;
 import com.google.inject.Inject;
 
-import org.eclipse.che.api.machine.shared.Constants;
 import org.eclipse.che.ide.extension.machine.client.MachineLocalizationConstant;
 import org.eclipse.che.ide.extension.machine.client.TableResources;
 
 import javax.validation.constraints.NotNull;
-import java.util.ArrayList;
 import java.util.List;
+
+import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Lists.newArrayList;
+import static org.eclipse.che.api.machine.shared.Constants.TERMINAL_REFERENCE;
 
 /**
  * The class displays server's information for current machine.
@@ -95,13 +98,14 @@ public class ServerViewImpl extends Composite implements ServerView {
     /** {@inheritDoc} */
     @Override
     public void setServers(@NotNull List<ServerEntity> servers) {
-        List<ServerEntity> list = new ArrayList<>();
-        for (ServerEntity serverEntity : servers) {
-           if (!Constants.TERMINAL_REFERENCE.equals(serverEntity.getRef())){//TODO: temporary hide terminal URL
-               list.add(serverEntity);
-           }
-        }
-        this.servers.setRowData(list);
-    }
+        Iterable<ServerEntity> serversToDisplay = filter(servers, new Predicate<ServerEntity>() {
+            @Override
+            public boolean apply(ServerEntity serverEntity) {
+                String reference = serverEntity.getRef();
+                return !TERMINAL_REFERENCE.equals(reference); //TODO: temporary hide terminal URL
+            }
+        });
 
+        this.servers.setRowData(newArrayList(serversToDisplay));
+    }
 }

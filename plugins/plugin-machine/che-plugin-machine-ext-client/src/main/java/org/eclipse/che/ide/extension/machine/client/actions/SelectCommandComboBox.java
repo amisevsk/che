@@ -62,6 +62,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Collections.emptyList;
 import static org.eclipse.che.ide.extension.machine.client.MachineExtension.GROUP_COMMANDS_LIST;
 import static org.eclipse.che.ide.extension.machine.client.MachineExtension.GROUP_MACHINES_LIST;
 import static org.eclipse.che.ide.workspace.perspectives.project.ProjectPerspective.PROJECT_PERSPECTIVE_ID;
@@ -326,17 +327,20 @@ public class SelectCommandComboBox extends AbstractPerspectiveAction implements 
 
     private void loadMachines() {
         List<MachineEntity> machines = getMachines(appContext.getWorkspace());
-        addMachineActions(machines);
+        if (!machines.isEmpty()) {
+            addMachineActions(machines);
+        }
     }
 
     private List<MachineEntity> getMachines(Workspace workspace) {
-        List<MachineEntity> machines = new ArrayList<>();
         WorkspaceRuntime workspaceRuntime = workspace.getRuntime();
         if (workspaceRuntime == null) {
-            return machines;
+            return emptyList();
         }
 
-        for (Machine machine : workspaceRuntime.getMachines()) {
+        List<? extends Machine> runtimeMachines = workspaceRuntime.getMachines();
+        List<MachineEntity> machines = new ArrayList<>(runtimeMachines.size());
+        for (Machine machine : runtimeMachines) {
             if (machine instanceof MachineDto) {
                 MachineEntity machineEntity = entityFactory.createMachine((MachineDto)machine);
                 machines.add(machineEntity);

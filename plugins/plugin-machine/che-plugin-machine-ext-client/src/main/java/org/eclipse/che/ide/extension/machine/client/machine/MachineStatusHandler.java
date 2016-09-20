@@ -26,7 +26,6 @@ import org.eclipse.che.ide.api.workspace.WorkspaceServiceClient;
 import org.eclipse.che.ide.api.workspace.event.MachineStatusChangedEvent;
 import org.eclipse.che.ide.extension.machine.client.MachineLocalizationConstant;
 import org.eclipse.che.ide.extension.machine.client.inject.factories.EntityFactory;
-import org.eclipse.che.ide.ui.loaders.LoaderPresenter;
 
 import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.EMERGE_MODE;
 import static org.eclipse.che.ide.api.notification.StatusNotification.Status.FAIL;
@@ -49,7 +48,6 @@ public class MachineStatusHandler implements MachineStatusChangedEvent.Handler {
     private final WorkspaceServiceClient      workspaceServiceClient;
     private final NotificationManager         notificationManager;
     private final MachineLocalizationConstant locale;
-    private final LoaderPresenter             loader;
 
     @Inject
     MachineStatusHandler(final EventBus eventBus,
@@ -57,15 +55,13 @@ public class MachineStatusHandler implements MachineStatusChangedEvent.Handler {
                          final EntityFactory entityFactory,
                          final WorkspaceServiceClient workspaceServiceClient,
                          final NotificationManager notificationManager,
-                         final MachineLocalizationConstant locale,
-                         final LoaderPresenter loader) {
+                         final MachineLocalizationConstant locale) {
         this.eventBus = eventBus;
         this.appContext = appContext;
         this.entityFactory = entityFactory;
         this.workspaceServiceClient = workspaceServiceClient;
         this.notificationManager = notificationManager;
         this.locale = locale;
-        this.loader = loader;
 
         eventBus.addHandler(MachineStatusChangedEvent.TYPE, this);
     }
@@ -120,10 +116,6 @@ public class MachineStatusHandler implements MachineStatusChangedEvent.Handler {
             return;
         }
 
-        if (machine.isDev()) {
-            // Will be used later
-            // loader.setProgress(LoaderPresenter.Phase.STARTING_WORKSPACE_RUNTIME, LoaderPresenter.Status.LOADING);
-        }
         eventBus.fireEvent(new MachineStateEvent(machine, CREATING));
     }
 
@@ -133,10 +125,6 @@ public class MachineStatusHandler implements MachineStatusChangedEvent.Handler {
             return;
         }
 
-        if (machine.isDev()) {
-            // Will be used later
-            // loader.setProgress(LoaderPresenter.Phase.STARTING_WORKSPACE_RUNTIME, LoaderPresenter.Status.SUCCESS);
-        }
         notificationManager.notify(locale.notificationMachineIsRunning(machine.getDisplayName()), SUCCESS, EMERGE_MODE);
         eventBus.fireEvent(new MachineStateEvent(machine, RUNNING));
     }

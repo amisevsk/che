@@ -37,6 +37,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Collections.emptyList;
+
 /**
  * Page allows to edit GDB debug configuration.
  *
@@ -115,33 +117,34 @@ public class GdbConfigurationPagePresenter implements GdbConfigurationPageView.A
         view.setPortEnableState(!devHost);
         view.setHostEnableState(!devHost);
 
-        setHostsList();
+        List<Machine> machines = getMachines();
+        if (!machines.isEmpty()) {
+            setHosts(machines);
+        }
     }
 
-    private void setHostsList() {
-        List<Machine> machines = getMachines();
-        if (machines.isEmpty()) {
-            return;
+    private void setHosts(List<Machine> machines) {
+        List<Promise<RecipeDescriptor>> recipePromises = new ArrayList<>(machines.size());
+        for (Machine machine : machines) {
+            String location = machine.getConfig().getSource().getLocation();
+            String recipeId = getRecipeId(location);
+            recipePromises.add(recipeServiceClient.getRecipe(recipeId));
         }
 
         @SuppressWarnings("unchecked")
-        Promise<RecipeDescriptor>[] recipePromises = (Promise<RecipeDescriptor>[])new Promise[machines.size()];
-        for (int i = 0; i < machines.size(); i++) {
-            String location = machines.get(i).getConfig().getSource().getLocation();
-            String recipeId = getRecipeId(location);
-            recipePromises[i] = recipeServiceClient.getRecipe(recipeId);
-        }
-        setHostsList(recipePromises, machines);
+        final Promise<RecipeDescriptor>[] recipePromisesArray = (Promise<RecipeDescriptor>[])recipePromises.toArray();
+        setHostsList(recipePromisesArray, machines);
     }
 
     private List<Machine> getMachines() {
-        List<Machine> machines = new ArrayList<>();
         Workspace workspace = appContext.getWorkspace();
         if (workspace == null || workspace.getRuntime() == null) {
-            return machines;
+            return emptyList();
         }
 
-        for (Machine currentMachine : workspace.getRuntime().getMachines()) {
+        List<? extends Machine> runtimeMachines = workspace.getRuntime().getMachines();
+        List<Machine> machines = new ArrayList<>(runtimeMachines.size());
+        for (Machine currentMachine : runtimeMachines) {
             if (currentMachine instanceof MachineDto) {
                 Machine machine = entityFactory.createMachine((MachineDto)currentMachine);
                 machines.add(machine);

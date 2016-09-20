@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Collections.emptyList;
 import static org.eclipse.che.api.core.model.machine.MachineStatus.RUNNING;
 
 /**
@@ -145,13 +146,14 @@ public class TargetsPresenter implements TargetsTreeManager, TargetsView.ActionD
         return workspaceServiceClient.getWorkspace(workspaceId).then(new Function<WorkspaceDto, List<MachineEntity>>() {
             @Override
             public List<MachineEntity> apply(WorkspaceDto workspace) throws FunctionException {
-                List<MachineEntity> machines = new ArrayList<>();
                 WorkspaceRuntimeDto workspaceRuntime = workspace.getRuntime();
                 if (workspaceRuntime == null) {
-                    return machines;
+                    return emptyList();
                 }
 
-                for (MachineDto machineDto : workspaceRuntime.getMachines()) {
+                List<MachineDto> runtimeMachines = workspaceRuntime.getMachines();
+                List<MachineEntity> machines = new ArrayList<>(runtimeMachines.size());
+                for (MachineDto machineDto : runtimeMachines) {
                     MachineEntity machineEntity = entityFactory.createMachine(machineDto);
                     machines.add(machineEntity);
                 }

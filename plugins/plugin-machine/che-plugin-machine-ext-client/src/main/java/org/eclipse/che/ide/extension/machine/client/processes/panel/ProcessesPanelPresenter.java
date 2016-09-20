@@ -70,6 +70,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Collections.emptyList;
 import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.FLOAT_MODE;
 import static org.eclipse.che.ide.api.notification.StatusNotification.Status.FAIL;
 import static org.eclipse.che.ide.extension.machine.client.processes.ProcessTreeNode.ProcessNodeType.COMMAND_NODE;
@@ -265,8 +266,9 @@ public class ProcessesPanelPresenter extends BasePresenter implements ProcessesP
         }
 
         if (selectedTreeNode == null) {
-            notificationManager.notify(localizationConstant.failedToConnectTheTerminal(),
-                                       localizationConstant.machineNotFound(""), FAIL, FLOAT_MODE);
+            String notificationTitle = localizationConstant.failedToConnectTheTerminal();
+            String notificationContent = localizationConstant.machineNotFound("");
+            notificationManager.notify(notificationTitle, notificationContent, FAIL, FLOAT_MODE);
             return;
         }
 
@@ -369,7 +371,8 @@ public class ProcessesPanelPresenter extends BasePresenter implements ProcessesP
      */
     private String getSshServerAddress(Machine machine) {
         Map<String, ? extends Server> servers = machine.getRuntime().getServers();
-        return servers.containsKey(SSH_PORT + "/tcp") ? servers.get(SSH_PORT + "/tcp").getAddress() : null;
+        final Server sshServer = servers.get(SSH_PORT + "/tcp");
+        return sshServer != null ? sshServer.getAddress() : null;
     }
 
     /**
@@ -618,13 +621,14 @@ public class ProcessesPanelPresenter extends BasePresenter implements ProcessesP
     }
 
     private List<MachineEntity> getMachines(Workspace workspace) {
-        List<MachineEntity> machines = new ArrayList<>();
         WorkspaceRuntime workspaceRuntime = workspace.getRuntime();
         if (workspaceRuntime == null) {
-            return machines;
+            return emptyList();
         }
 
-        for (Machine machine : workspaceRuntime.getMachines()) {
+        List<? extends Machine> runtimeMachines = workspaceRuntime.getMachines();
+        List<MachineEntity> machines = new ArrayList<>(runtimeMachines.size());
+        for (Machine machine : runtimeMachines) {
             if (machine instanceof MachineDto) {
                 MachineEntity machineEntity = entityFactory.createMachine((MachineDto)machine);
                 machines.add(machineEntity);
@@ -661,10 +665,12 @@ public class ProcessesPanelPresenter extends BasePresenter implements ProcessesP
             addMachineNode(machine);
         }
 
-        if (machineToSelect == null) {
+        if (machineToSelect != null) {
+            view.selectNode(machineToSelect);
+        } else if (!machineNodes.isEmpty()) {
             machineToSelect = machineNodes.entrySet().iterator().next().getValue();
+            view.selectNode(machineToSelect);
         }
-        view.selectNode(machineToSelect);
 
         workspaceAgent.setActivePart(ProcessesPanelPresenter.this);
     }

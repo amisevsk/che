@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Collections.emptyList;
+
 /**
  * The class contains business logic which allows update server's information for current machine. The class is a tab presenter and
  * represent content of server tab.
@@ -53,14 +55,13 @@ public class ServerPresenter implements TabPresenter {
     }
 
     private List<ServerEntity> getServers(Machine machine) {
-        List<ServerEntity> serversList = new ArrayList<>();
-
         MachineRuntimeInfo machineRuntime = machine.getRuntime();
         if (machineRuntime == null) {
-            return serversList;
+            return emptyList();
         }
 
         Map<String, ? extends Server> servers = machineRuntime.getServers();
+        List<ServerEntity> serversList = new ArrayList<>(servers.size());
         for (Map.Entry<String, ? extends Server> entry : servers.entrySet()) {
             String exposedPort = entry.getKey();
             Server descriptor = entry.getValue();

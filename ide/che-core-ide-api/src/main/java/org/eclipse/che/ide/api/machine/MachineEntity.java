@@ -21,7 +21,7 @@ import java.util.Map;
  */
 public interface MachineEntity extends Machine {
 
-    /** Is workspace bound to machine or not. */
+    /** Returns {@code true} when the machine entity is development machine and {@code false} otherwise */
     boolean isDev();
 
     /** Machine type (i.e. "docker"). */

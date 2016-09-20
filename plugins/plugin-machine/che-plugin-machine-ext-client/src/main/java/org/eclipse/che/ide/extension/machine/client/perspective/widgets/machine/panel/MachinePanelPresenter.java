@@ -17,6 +17,7 @@ import com.google.inject.Singleton;
 import com.google.web.bindery.event.shared.EventBus;
 
 import org.eclipse.che.api.core.model.machine.Machine;
+import org.eclipse.che.api.core.model.machine.MachineConfig;
 import org.eclipse.che.api.core.model.workspace.Workspace;
 import org.eclipse.che.api.core.model.workspace.WorkspaceRuntime;
 import org.eclipse.che.api.machine.shared.dto.MachineDto;
@@ -41,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Collections.emptyList;
 import static org.eclipse.che.api.core.model.machine.MachineStatus.RUNNING;
 
 /**
@@ -121,13 +123,14 @@ public class MachinePanelPresenter extends BasePresenter implements MachinePanel
     }
 
     private List<MachineEntity> getMachines(Workspace workspace) {
-        List<MachineEntity> machines = new ArrayList<>();
         WorkspaceRuntime workspaceRuntime = workspace.getRuntime();
         if (workspaceRuntime == null) {
-            return machines;
+            return emptyList();
         }
 
-        for (Machine machine : workspaceRuntime.getMachines()) {
+        List<? extends Machine> runtimeMachines = workspaceRuntime.getMachines();
+        List<MachineEntity> machines = new ArrayList<>(runtimeMachines.size());
+        for (Machine machine : runtimeMachines) {
             if (machine instanceof MachineDto) {
                 MachineEntity machineEntity = entityFactory.createMachine((MachineDto)machine);
                 machines.add(machineEntity);
@@ -178,9 +181,14 @@ public class MachinePanelPresenter extends BasePresenter implements MachinePanel
             appliance.showAppliance(selectedMachine);
         } else {
             isMachineRunning = false;
+
+            final MachineConfig machineConfig = selectedMachine.getConfig();
+            final boolean isDevMachine = machineConfig.isDev();
+            final String machineName = machineConfig.getName();
+
             // we show the loader for dev machine so this message isn't necessary for dev machine
-            if (!selectedMachine.getConfig().isDev()) {
-                appliance.showStub(locale.unavailableMachineStarting(selectedMachine.getConfig().getName()));
+            if (!isDevMachine) {
+                appliance.showStub(locale.unavailableMachineStarting(machineName));
             }
         }
     }

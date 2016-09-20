@@ -232,9 +232,7 @@ public class WorkspaceServiceLinksInjector {
                                                                         TERMINAL_REFERENCE)));
             }
 
-            runtime.getMachines()
-                   .stream()
-                   .forEach(machine -> injectMachineLinks(machine, serviceContext));
+            runtime.getMachines().forEach(machine -> injectMachineLinks(machine, serviceContext));
         }
     }
 

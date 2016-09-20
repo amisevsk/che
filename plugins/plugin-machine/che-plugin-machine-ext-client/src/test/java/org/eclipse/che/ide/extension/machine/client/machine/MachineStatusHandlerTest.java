@@ -26,7 +26,6 @@ import org.eclipse.che.ide.api.workspace.WorkspaceServiceClient;
 import org.eclipse.che.ide.api.workspace.event.MachineStatusChangedEvent;
 import org.eclipse.che.ide.extension.machine.client.MachineLocalizationConstant;
 import org.eclipse.che.ide.extension.machine.client.inject.factories.EntityFactory;
-import org.eclipse.che.ide.ui.loaders.LoaderPresenter;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,8 +56,6 @@ public class MachineStatusHandlerTest {
     private static final String WORKSPACE_ID = "workspaceId";
 
     //constructor mocks
-    @Mock
-    private LoaderPresenter             loader;
     @Mock
     private NotificationManager         notificationManager;
     @Mock
@@ -94,7 +91,7 @@ public class MachineStatusHandlerTest {
     @Before
     public void setUp() {
         statusNotifier =
-                new MachineStatusHandler(eventBus, appContext, entityFactory, workspaceServiceClient, notificationManager, locale, loader);
+                new MachineStatusHandler(eventBus, appContext, entityFactory, workspaceServiceClient, notificationManager, locale);
         eventBus.addHandler(MachineStateEvent.TYPE, handler);
 
         when(machine.getDisplayName()).thenReturn(MACHINE_NAME);
