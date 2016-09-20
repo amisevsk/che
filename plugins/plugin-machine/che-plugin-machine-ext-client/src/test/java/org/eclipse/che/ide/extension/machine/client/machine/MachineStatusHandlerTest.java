@@ -13,16 +13,19 @@ package org.eclipse.che.ide.extension.machine.client.machine;
 import com.google.gwt.event.shared.SimpleEventBus;
 import com.google.web.bindery.event.shared.EventBus;
 
-import org.eclipse.che.api.machine.shared.dto.MachineConfigDto;
 import org.eclipse.che.api.machine.shared.dto.MachineDto;
 import org.eclipse.che.api.promises.client.Operation;
 import org.eclipse.che.api.promises.client.Promise;
-import org.eclipse.che.api.promises.client.PromiseError;
-import org.eclipse.che.ide.api.machine.MachineServiceClient;
+import org.eclipse.che.api.workspace.shared.dto.WorkspaceDto;
+import org.eclipse.che.api.workspace.shared.dto.WorkspaceRuntimeDto;
+import org.eclipse.che.ide.api.app.AppContext;
+import org.eclipse.che.ide.api.machine.MachineEntity;
 import org.eclipse.che.ide.api.notification.NotificationManager;
 import org.eclipse.che.ide.api.notification.StatusNotification;
+import org.eclipse.che.ide.api.workspace.WorkspaceServiceClient;
 import org.eclipse.che.ide.api.workspace.event.MachineStatusChangedEvent;
 import org.eclipse.che.ide.extension.machine.client.MachineLocalizationConstant;
+import org.eclipse.che.ide.extension.machine.client.inject.factories.EntityFactory;
 import org.eclipse.che.ide.ui.loaders.LoaderPresenter;
 import org.junit.Before;
 import org.junit.Test;
@@ -32,6 +35,8 @@ import org.mockito.Captor;
 import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
+
+import java.util.Collections;
 
 import static org.eclipse.che.api.machine.shared.dto.event.MachineStatusEvent.EventType.CREATING;
 import static org.eclipse.che.api.machine.shared.dto.event.MachineStatusEvent.EventType.DESTROYED;
@@ -46,89 +51,102 @@ import static org.mockito.Mockito.when;
  * @author Roman Nikitenko
  */
 @RunWith(MockitoJUnitRunner.class)
-public class MachineStateNotifierTest {
+public class MachineStatusHandlerTest {
     private static final String MACHINE_NAME = "machineName";
     private static final String MACHINE_ID   = "machineId";
     private static final String WORKSPACE_ID = "workspaceId";
 
     //constructor mocks
     @Mock
-    private LoaderPresenter                       loader;
+    private LoaderPresenter             loader;
     @Mock
-    private NotificationManager                   notificationManager;
+    private NotificationManager         notificationManager;
     @Mock
-    private MachineLocalizationConstant           locale;
+    private MachineLocalizationConstant locale;
     @Mock
-    private MachineServiceClient                  machineServiceClient;
+    private EntityFactory               entityFactory;
+    @Mock
+    private WorkspaceServiceClient      workspaceServiceClient;
+    @Mock
+    private AppContext                  appContext;
 
     //additional mocks
     @Mock
-    private MachineDto                            machine;
+    private MachineDto                              machineDto;
     @Mock
-    private MachineConfigDto                      machineConfig;
+    private MachineEntity                           machine;
     @Mock
-    private MachineStateEvent.Handler             handler;
+    private MachineStateEvent.Handler               handler;
     @Mock
-    private MachineStatusChangedEvent             machineStatusChangedEvent;
+    private MachineStatusChangedEvent               machineStatusChangedEvent;
     @Mock
-    private Promise<MachineDto>                   machinePromise;
+    private Promise<WorkspaceDto>                   workspacePromise;
+    @Mock
+    private WorkspaceDto                            workspace;
+    @Mock
+    private WorkspaceRuntimeDto                     workspaceRuntime;
     @Captor
-    private ArgumentCaptor<Operation<MachineDto>> machineCaptor;
+    private ArgumentCaptor<Operation<WorkspaceDto>> workspaceCaptor;
 
     private EventBus eventBus = new SimpleEventBus();
-    private MachineStatusNotifier statusNotifier;
+    private MachineStatusHandler statusNotifier;
 
     @Before
     public void setUp() {
-        statusNotifier = new MachineStatusNotifier(eventBus, machineServiceClient, notificationManager, locale, loader);
+        statusNotifier =
+                new MachineStatusHandler(eventBus, appContext, entityFactory, workspaceServiceClient, notificationManager, locale, loader);
         eventBus.addHandler(MachineStateEvent.TYPE, handler);
 
-        when(machine.getConfig()).thenReturn(machineConfig);
-        when(machineConfig.getName()).thenReturn(MACHINE_NAME);
+        when(machine.getDisplayName()).thenReturn(MACHINE_NAME);
+        when(machineDto.getId()).thenReturn(MACHINE_ID);
+        when(entityFactory.createMachine(machineDto)).thenReturn(machine);
+        when(workspace.getRuntime()).thenReturn(workspaceRuntime);
+        when(workspaceRuntime.getMachines()).thenReturn(Collections.singletonList(machineDto));
         when(machineStatusChangedEvent.getMachineId()).thenReturn(MACHINE_ID);
         when(machineStatusChangedEvent.getWorkspaceId()).thenReturn(WORKSPACE_ID);
         when(machineStatusChangedEvent.getMachineName()).thenReturn(MACHINE_NAME);
-        when(machineServiceClient.getMachine(WORKSPACE_ID, MACHINE_ID)).thenReturn(machinePromise);
-        when(machinePromise.then(Matchers.<Operation<MachineDto>>anyObject())).thenReturn(machinePromise);
-        when(machinePromise.catchError(Matchers.<Operation<PromiseError>>anyObject())).thenReturn(machinePromise);
+        when(workspaceServiceClient.getWorkspace(WORKSPACE_ID)).thenReturn(workspacePromise);
     }
 
     @Test
     public void shouldNotifyWhenDevMachineStateIsCreating() throws Exception {
-        when(machineConfig.isDev()).thenReturn(true);
+        when(machine.isDev()).thenReturn(true);
 
         when(machineStatusChangedEvent.getEventType()).thenReturn(CREATING);
         statusNotifier.onMachineStatusChanged(machineStatusChangedEvent);
 
-        verify(machinePromise).then(machineCaptor.capture());
-        machineCaptor.getValue().apply(machine);
+        verify(workspaceServiceClient.getWorkspace(WORKSPACE_ID)).then(workspaceCaptor.capture());
+        workspaceCaptor.getValue().apply(workspace);
 
+        verify(appContext).setWorkspace(workspace);
         verify(handler).onMachineCreating(Matchers.<MachineStateEvent>anyObject());
     }
 
     @Test
     public void shouldNotifyWhenNonDevMachineStateIsCreating() throws Exception {
-        when(machineConfig.isDev()).thenReturn(false);
+        when(machine.isDev()).thenReturn(false);
 
         when(machineStatusChangedEvent.getEventType()).thenReturn(CREATING);
         statusNotifier.onMachineStatusChanged(machineStatusChangedEvent);
 
-        verify(machinePromise).then(machineCaptor.capture());
-        machineCaptor.getValue().apply(machine);
+        verify(workspaceServiceClient.getWorkspace(WORKSPACE_ID)).then(workspaceCaptor.capture());
+        workspaceCaptor.getValue().apply(workspace);
 
+        verify(appContext).setWorkspace(workspace);
         verify(handler).onMachineCreating(Matchers.<MachineStateEvent>anyObject());
     }
 
     @Test
     public void shouldNotifyWhenDevMachineStateIsRunning() throws Exception {
-        when(machineConfig.isDev()).thenReturn(true);
+        when(machine.isDev()).thenReturn(true);
 
         when(machineStatusChangedEvent.getEventType()).thenReturn(RUNNING);
         statusNotifier.onMachineStatusChanged(machineStatusChangedEvent);
 
-        verify(machinePromise).then(machineCaptor.capture());
-        machineCaptor.getValue().apply(machine);
+        verify(workspaceServiceClient.getWorkspace(WORKSPACE_ID)).then(workspaceCaptor.capture());
+        workspaceCaptor.getValue().apply(workspace);
 
+        verify(appContext).setWorkspace(workspace);
         verify(handler).onMachineRunning(Matchers.<MachineStateEvent>anyObject());
         verify(locale).notificationMachineIsRunning(MACHINE_NAME);
         verify(notificationManager).notify(anyString(), (StatusNotification.Status)anyObject(), anyObject());
@@ -136,14 +154,15 @@ public class MachineStateNotifierTest {
 
     @Test
     public void shouldNotifyWhenNonDevMachineStateIsRunning() throws Exception {
-        when(machineConfig.isDev()).thenReturn(false);
+        when(machine.isDev()).thenReturn(false);
 
         when(machineStatusChangedEvent.getEventType()).thenReturn(RUNNING);
         statusNotifier.onMachineStatusChanged(machineStatusChangedEvent);
 
-        verify(machinePromise).then(machineCaptor.capture());
-        machineCaptor.getValue().apply(machine);
+        verify(workspaceServiceClient.getWorkspace(WORKSPACE_ID)).then(workspaceCaptor.capture());
+        workspaceCaptor.getValue().apply(workspace);
 
+        verify(appContext).setWorkspace(workspace);
         verify(handler).onMachineRunning(Matchers.<MachineStateEvent>anyObject());
         verify(locale).notificationMachineIsRunning(MACHINE_NAME);
         verify(notificationManager).notify(anyString(), (StatusNotification.Status)anyObject(), anyObject());
@@ -154,6 +173,10 @@ public class MachineStateNotifierTest {
         when(machineStatusChangedEvent.getEventType()).thenReturn(DESTROYED);
         statusNotifier.onMachineStatusChanged(machineStatusChangedEvent);
 
+        verify(workspaceServiceClient.getWorkspace(WORKSPACE_ID)).then(workspaceCaptor.capture());
+        workspaceCaptor.getValue().apply(workspace);
+
+        verify(appContext).setWorkspace(workspace);
         verify(locale).notificationMachineDestroyed(MACHINE_NAME);
         verify(notificationManager).notify(anyString(), (StatusNotification.Status)anyObject(), anyObject());
     }
@@ -163,8 +186,11 @@ public class MachineStateNotifierTest {
         when(machineStatusChangedEvent.getEventType()).thenReturn(ERROR);
         statusNotifier.onMachineStatusChanged(machineStatusChangedEvent);
 
+        verify(workspaceServiceClient.getWorkspace(WORKSPACE_ID)).then(workspaceCaptor.capture());
+        workspaceCaptor.getValue().apply(workspace);
+
+        verify(appContext).setWorkspace(workspace);
         verify(machineStatusChangedEvent).getErrorMessage();
         verify(notificationManager).notify(anyString(), (StatusNotification.Status)anyObject(), anyObject());
     }
-
 }

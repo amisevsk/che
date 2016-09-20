@@ -26,30 +26,30 @@ import static org.mockito.Mockito.when;
  * @author Dmitry Shnurenko
  */
 @RunWith(MockitoJUnitRunner.class)
-public class ServerTest {
+public class ServerEntityTest {
 
     private static final String SOME_TEXT = "someText";
 
     @Mock
     private ServerDto descriptor;
 
-    private Server server;
+    private ServerEntity serverEntity;
 
     @Before
     public void setUp() {
-        server = new Server(SOME_TEXT, descriptor);
+        serverEntity = new ServerEntity(SOME_TEXT, descriptor);
     }
 
     @Test
     public void exposedPortShouldBeReturned() {
-        assertThat(server.getPort(), equalTo(SOME_TEXT));
+        assertThat(serverEntity.getPort(), equalTo(SOME_TEXT));
     }
 
     @Test
     public void addressShouldBeReturned() {
         when(descriptor.getAddress()).thenReturn(SOME_TEXT);
 
-        assertThat(server.getAddress(), equalTo(SOME_TEXT));
+        assertThat(serverEntity.getAddress(), equalTo(SOME_TEXT));
 
         verify(descriptor).getAddress();
     }
@@ -58,7 +58,7 @@ public class ServerTest {
     public void pathShouldBeReturned() {
         when(descriptor.getPath()).thenReturn(SOME_TEXT);
 
-        assertThat(server.getPath(), equalTo(SOME_TEXT));
+        assertThat(serverEntity.getPath(), equalTo(SOME_TEXT));
 
         verify(descriptor).getPath();
     }
@@ -67,7 +67,7 @@ public class ServerTest {
     public void urlShouldBeReturned() {
         when(descriptor.getUrl()).thenReturn(SOME_TEXT);
 
-        assertThat(server.getUrl(), equalTo(SOME_TEXT));
+        assertThat(serverEntity.getUrl(), equalTo(SOME_TEXT));
 
         verify(descriptor).getUrl();
     }
@@ -76,9 +76,8 @@ public class ServerTest {
     public void refShouldBeReturned() {
         when(descriptor.getRef()).thenReturn(SOME_TEXT);
 
-        assertThat(server.getRef(), equalTo(SOME_TEXT));
+        assertThat(serverEntity.getRef(), equalTo(SOME_TEXT));
 
         verify(descriptor).getRef();
     }
-
 }
