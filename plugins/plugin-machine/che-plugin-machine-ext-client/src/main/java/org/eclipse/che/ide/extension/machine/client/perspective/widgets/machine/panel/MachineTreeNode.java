@@ -45,10 +45,14 @@ public class MachineTreeNode {
         this.data = data;
         this.children = children;
 
-        boolean isMachine = data instanceof Machine;
-
-        id = isMachine ? ((Machine)data).getId() : ROOT;
-        name = isMachine ? ((Machine)data).getConfig().getName() : ROOT;
+        if (data instanceof Machine) {
+            Machine machine = (Machine)data;
+            id = machine.getId();
+            name = machine.getConfig().getName();
+        } else {
+            id = ROOT;
+            name = ROOT;
+        }
     }
 
     @NotNull
