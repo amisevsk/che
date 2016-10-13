@@ -16,6 +16,7 @@ import org.eclipse.che.api.core.model.machine.MachineConfig;
 import org.eclipse.che.api.core.model.machine.ServerConf;
 import org.eclipse.che.commons.annotation.Nullable;
 import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
+import org.eclipse.che.plugin.docker.client.json.NetworkSettings;
 import org.eclipse.che.plugin.docker.machine.DockerInstanceRuntimeInfo;
 
 import javax.inject.Inject;
@@ -60,23 +61,23 @@ public class LocalDockerInstanceRuntimeInfo extends DockerInstanceRuntimeInfo {
                                           @Named("machine.docker.dev_machine.machine_servers") Set<ServerConf> devMachineServers,
                                           @Named("machine.docker.machine_servers") Set<ServerConf> allMachinesServers) {
 
-
         super(containerInfo,
               externalHostnameWithPrecedence(dockerNodeExternalHostname,
-                                           containerExternalHostname,
-                                           dockerNodeInternalHostname,
-                                           containerInternalHostname),
+                                             containerExternalHostname,
+                                             dockerNodeInternalHostname,
+                                             containerInternalHostname),
               internalHostnameWithPrecedence(dockerNodeInternalHostname,
-                                           containerInternalHostname),
+                                             containerInternalHostname,
+                                             containerInfo.getNetworkSettings()),
               machineConfig,
               devMachineServers,
               allMachinesServers);
     }
 
     private static String externalHostnameWithPrecedence(String externalHostnameProperty,
-                                                              String externalHostnameAssisted,
-                                                              String internalHostnameProperty,
-                                                              String internalHostnameAssisted) {
+                                                         String externalHostnameAssisted,
+                                                         String internalHostnameProperty,
+                                                         String internalHostnameAssisted) {
 
         String externalHostnameEnvVar = System.getenv(CHE_DOCKER_MACHINE_HOST_EXTERNAL);
         if (externalHostnameEnvVar != null) {
@@ -86,14 +87,24 @@ public class LocalDockerInstanceRuntimeInfo extends DockerInstanceRuntimeInfo {
         } else if (externalHostnameAssisted != null) {
             return externalHostnameAssisted;
         } else {
-            return internalHostnameWithPrecedence(internalHostnameProperty,internalHostnameAssisted);
+            return internalHostnameWithPrecedence(internalHostnameProperty,
+                                                  internalHostnameAssisted,
+                                                  null);
         }
     }
 
     private static String internalHostnameWithPrecedence(String internalHostnameProperty,
-                                                              String internalHostnameAssisted) {
+                                                         String internalHostnameAssisted,
+                                                         NetworkSettings networkSettings) {
 
+        String containerHostName = null;
+        if (networkSettings != null) {
+            containerHostName = networkSettings.getIpAddress();
+        }
         String internalHostNameEnvVariable = System.getenv(CHE_DOCKER_MACHINE_HOST_INTERNAL);
+        if (containerHostName != null) {
+            return containerHostName;
+        }
         if (internalHostNameEnvVariable != null) {
             return internalHostNameEnvVariable;
         } else if (internalHostnameProperty != null) {
