@@ -310,7 +310,10 @@ public class DockerInstanceRuntimeInfo implements MachineRuntimeInfo {
 
     protected Map<String, ServerImpl> getServersWithFilledPorts(final String externalHostame, final String internalHostname, final Map<String, List<PortBinding>> exposedPorts) {
         final HashMap<String, ServerImpl> servers = new LinkedHashMap<>();
-        final boolean mappedPorts = info.getNetworkSettings().getGateway().equals(internalHostname);
+        boolean useMappedPorts = true;
+        if (info.getNetworkSettings() != null && info.getNetworkSettings().getIpAddress() != null) {
+            useMappedPorts = !info.getNetworkSettings().getIpAddress().equals(internalHostname);
+        }
 
         for (Map.Entry<String, List<PortBinding>> portEntry : exposedPorts.entrySet()) {
             // in form 1234/tcp
@@ -320,7 +323,7 @@ public class DockerInstanceRuntimeInfo implements MachineRuntimeInfo {
 
             // If we are sending messages to the container directly, we don't want to use the mapped ports.
             String internalHostnameAndPort;
-            if (mappedPorts) {
+            if (useMappedPorts) {
                 internalHostnameAndPort = internalHostname + ":" + externalPort;
             } else {
                 String internalPort = portEntry.getKey().split("/")[0];
