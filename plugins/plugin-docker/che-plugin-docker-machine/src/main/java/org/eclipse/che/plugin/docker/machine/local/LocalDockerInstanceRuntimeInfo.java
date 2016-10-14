@@ -102,7 +102,7 @@ public class LocalDockerInstanceRuntimeInfo extends DockerInstanceRuntimeInfo {
             containerHostName = networkSettings.getIpAddress();
         }
         String internalHostNameEnvVariable = System.getenv(CHE_DOCKER_MACHINE_HOST_INTERNAL);
-        if (containerHostName != null) {
+        if (containerHostName != null && !containerHostName.isEmpty()) {
             return containerHostName;
         }
         if (internalHostNameEnvVariable != null) {
