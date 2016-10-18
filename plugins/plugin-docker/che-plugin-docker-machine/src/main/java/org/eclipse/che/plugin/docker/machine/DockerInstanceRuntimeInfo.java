@@ -69,6 +69,12 @@ public class DockerInstanceRuntimeInfo implements MachineRuntimeInfo {
     public static final String CHE_WORKSPACE_ID = "CHE_WORKSPACE_ID";
 
     /**
+     * Env variable that indicates to DockerInstanceRuntimeInfo that the direct address of wsagent containers
+     * should be used, as available in ContainerInfo.
+     */
+    public static final String CHE_DOCKER_USE_INTERNAL_CONTAINER_ADDRESS = "CHE_DOCKER_USE_INTERNAL_CONTAINER_ADDRESS";
+
+    /**
      * Default HOSTNAME that will be added in all docker containers that are started. This host will container the Docker host's ip
      * reachable inside the container.
      */
@@ -311,8 +317,16 @@ public class DockerInstanceRuntimeInfo implements MachineRuntimeInfo {
     protected Map<String, ServerImpl> getServersWithFilledPorts(final String externalHostame, final String internalHostname, final Map<String, List<PortBinding>> exposedPorts) {
         final HashMap<String, ServerImpl> servers = new LinkedHashMap<>();
         boolean useMappedPorts = true;
-        if (info.getNetworkSettings() != null && info.getNetworkSettings().getIpAddress() != null) {
-            useMappedPorts = !info.getNetworkSettings().getIpAddress().equals(internalHostname);
+
+        String useInternalAddress = System.getenv(CHE_DOCKER_USE_INTERNAL_CONTAINER_ADDRESS);
+        if (useInternalAddress != null
+                && useInternalAddress.equals(true)
+                && info.getNetworkSettings() != null) {
+            String containerIpAddress = info.getNetworkSettings().getIpAddress();
+            // Double check that we have the right address.
+            if (internalHostname.equals(containerIpAddress)) {
+                useMappedPorts = false;
+            }
         }
 
         for (Map.Entry<String, List<PortBinding>> portEntry : exposedPorts.entrySet()) {

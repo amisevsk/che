@@ -24,11 +24,13 @@ import javax.inject.Named;
 import java.util.Set;
 
 /**
- * Gets predefined docker containers host (internal and external addresses) for machine servers instead of evaluating it
+ * By default, gets predefined docker containers host (internal and external addresses) for machine servers instead of evaluating it
  * from docker configuration. External address is needed when clients (UD, IDE, etc...) can't ping machine servers
  * directly (e.g. when running on Docker for Mac or behind a NAT). If the external address is not provided it defaults
  * to the internal one.
  *
+ * <p>If environment variable {@code CHE_DOCKER_USE_INTERNAL_CONTAINER_ADDRESS} is true, the IP Address from
+ * {@link ContainerInfo}, if available, is used for internal address instead.<br>
  * <p>Value of host can be retrieved from property ${code machine.docker.local_node_host} or
  * from environment variable {@code CHE_DOCKER_MACHINE_HOST}.<br>
  * <p>Value of external hostname can be retrieved from property ${code machine.docker.local_node_host.external} or
@@ -50,6 +52,12 @@ public class LocalDockerInstanceRuntimeInfo extends DockerInstanceRuntimeInfo {
      * The value is used by UD, IDE and other clients to communicate with the servers running inside containers.
      */
     public static final String CHE_DOCKER_MACHINE_HOST_EXTERNAL = "CHE_DOCKER_MACHINE_HOST_EXTERNAL";
+
+    /**
+     * Env variable that indicates to DockerInstanceRuntimeInfo that the direct address of wsagent containers
+     * should be used, as available in ContainerInfo.
+     */
+    public static final String CHE_DOCKER_USE_INTERNAL_CONTAINER_ADDRESS = "CHE_DOCKER_USE_INTERNAL_CONTAINER_ADDRESS";
 
     @Inject
     public LocalDockerInstanceRuntimeInfo(@Assisted ContainerInfo containerInfo,
@@ -97,14 +105,19 @@ public class LocalDockerInstanceRuntimeInfo extends DockerInstanceRuntimeInfo {
                                                          String internalHostnameAssisted,
                                                          NetworkSettings networkSettings) {
 
-        String containerHostName = null;
-        if (networkSettings != null) {
-            containerHostName = networkSettings.getIpAddress();
+        String useInternalContainerAddress = System.getenv(CHE_DOCKER_USE_INTERNAL_CONTAINER_ADDRESS);
+        if (useInternalContainerAddress.equals("true")) {
+            String containerHostName = null;
+            if (networkSettings != null) {
+                containerHostName = networkSettings.getIpAddress();
+            }
+            if (containerHostName != null && !containerHostName.isEmpty()) {
+                return containerHostName;
+            }
         }
+
         String internalHostNameEnvVariable = System.getenv(CHE_DOCKER_MACHINE_HOST_INTERNAL);
-        if (containerHostName != null && !containerHostName.isEmpty()) {
-            return containerHostName;
-        }
+
         if (internalHostNameEnvVariable != null) {
             return internalHostNameEnvVariable;
         } else if (internalHostnameProperty != null) {
