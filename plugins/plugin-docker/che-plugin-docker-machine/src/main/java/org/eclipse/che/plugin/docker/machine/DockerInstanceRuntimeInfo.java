@@ -316,15 +316,10 @@ public class DockerInstanceRuntimeInfo implements MachineRuntimeInfo {
 
     protected Map<String, ServerImpl> getServersWithFilledPorts(final String externalHostame, final String internalHostname, final Map<String, List<PortBinding>> exposedPorts) {
         final HashMap<String, ServerImpl> servers = new LinkedHashMap<>();
-        boolean useMappedPorts = true;
 
-        String useInternalAddress = System.getenv(CHE_DOCKER_USE_INTERNAL_CONTAINER_ADDRESS);
-        if (useInternalAddress != null
-                && useInternalAddress.equals(true)
-                && info.getNetworkSettings() != null) {
-            String containerIpAddress = info.getNetworkSettings().getIpAddress();
-            // Double check that we have the right address.
-            if (internalHostname.equals(containerIpAddress)) {
+        boolean useMappedPorts = true;
+        if (useInternalContainerAddresses()) {
+            if (info.getNetworkSettings() != null && internalHostname.equals(info.getNetworkSettings().getIpAddress())) {
                 useMappedPorts = false;
             }
         }
@@ -383,5 +378,19 @@ public class DockerInstanceRuntimeInfo implements MachineRuntimeInfo {
         }
 
         return serversConf;
+    }
+
+    /**
+     * Checks environment variable {@code CHE_DOCKER_USE_INTERNAL_CONTAINER_ADDRESS} to determine if
+     * direct addresses of containers should be used.
+     * @return true if {@code CHE_DOCKER_USE_INTERNAL_CONTAINER_ADDRESS} is "true", false otherwise.
+     */
+    protected boolean useInternalContainerAddresses() {
+        String useInternalContainerAddresses = System.getenv(CHE_DOCKER_USE_INTERNAL_CONTAINER_ADDRESS);
+        if (useInternalContainerAddresses == null) {
+            return false;
+        } else {
+            return useInternalContainerAddresses.equals("true");
+        }
     }
 }
