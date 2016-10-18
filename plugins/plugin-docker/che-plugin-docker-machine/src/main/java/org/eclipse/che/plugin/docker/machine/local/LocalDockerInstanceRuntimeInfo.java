@@ -106,7 +106,7 @@ public class LocalDockerInstanceRuntimeInfo extends DockerInstanceRuntimeInfo {
                                                          NetworkSettings networkSettings) {
 
         String useInternalContainerAddress = System.getenv(CHE_DOCKER_USE_INTERNAL_CONTAINER_ADDRESS);
-        if (useInternalContainerAddress.equals("true")) {
+        if (useInternalContainerAddress != null && useInternalContainerAddress.equals("true")) {
             String containerHostName = null;
             if (networkSettings != null) {
                 containerHostName = networkSettings.getIpAddress();
