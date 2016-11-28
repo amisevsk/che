@@ -225,8 +225,24 @@ public class OpenShiftConnector {
     public Network inspectNetwork(InspectNetworkParams params) throws IOException {
         String netId = params.getNetworkId();
 
-        List<IPod> pods = openShiftClient.list(ResourceKind.POD);
-        Map<String, ContainerInNetwork> containers = processPods(pods);
+        List<IService> services = openShiftClient.list(ResourceKind.SERVICE, cheOpenShiftProjectName, Collections.emptyMap());
+        Map<String, ContainerInNetwork> containers = new HashMap<>();
+        for (IService service : services) {
+            String selector = service.getSelector().get("deploymentConfig");
+            if (selector == null || !selector.startsWith("che")) {
+                continue;
+            }
+
+            List<IPod> pods = service.getPods();
+            for (IPod pod : pods) {
+                String podName = pod.getName();
+                String podId = pod.getLabels().get(CHE_CONTAINER_IDENTIFIER_LABEL_KEY);
+
+                ContainerInNetwork container = new ContainerInNetwork().withName(selector)
+                                                                       .withIPv4Address(service.getPortalIP());
+                containers.put(podId == null ? selector : podId, container);
+            }
+        }
 
         List<IpamConfig> ipamConfig = new ArrayList<>();
         Ipam ipam = new Ipam().withDriver("bridge")
@@ -243,27 +259,6 @@ public class OpenShiftConnector {
                             .withScope("local")
                             .withInternal(false)
                             .withEnableIPv6(false);
-
-    }
-
-    private Map<String, ContainerInNetwork> processPods(List<IPod> pods) {
-        Map<String, ContainerInNetwork> containers = new HashMap<>();
-        for (IPod pod : pods) {
-            // TODO: Check if pod label is modified from requested (che-ws-?)
-            String podId = pod.getLabels().get("deploymentConfig");
-            String podName = pod.getName();
-            IService podService = getCheServiceBySelector("deploymentConfig", podId);
-            podService.getPortalIP();
-
-            // TODO: double check that ContainerInNetwork.name is id?
-            ContainerInNetwork container = new ContainerInNetwork().withName(podName)
-                                                                   .withIPv4Address(podService.getPortalIP())
-                                                                   .withIPv6Address(null)
-                                                                   .withMacAddress(null)
-                                                                   .withEndpointID(null);
-            containers.put(podId, container);
-        }
-        return containers;
     }
 
     private IService getCheServiceBySelector(String selectorKey, String selectorValue) {
