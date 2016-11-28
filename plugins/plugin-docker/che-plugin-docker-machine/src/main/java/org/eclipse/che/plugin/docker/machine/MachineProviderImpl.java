@@ -332,9 +332,9 @@ public class MachineProviderImpl implements MachineInstanceProvider {
     @Override
     public void createNetwork(String networkName) throws ServerException {
         try {
-            docker.createNetwork(CreateNetworkParams.create(new NewNetwork().withName(networkName)
-                                                                            .withDriver(networkDriver)
-                                                                            .withCheckDuplicate(true)));
+            openShift.createNetwork(CreateNetworkParams.create(new NewNetwork().withName(networkName)
+                                                                               .withDriver(networkDriver)
+                                                                               .withCheckDuplicate(true)));
         } catch (IOException e) {
             throw new ServerException(e.getLocalizedMessage(), e);
         }
@@ -343,7 +343,7 @@ public class MachineProviderImpl implements MachineInstanceProvider {
     @Override
     public void destroyNetwork(String networkName) throws ServerException {
         try {
-            docker.removeNetwork(RemoveNetworkParams.create(networkName));
+            openShift.removeNetwork(RemoveNetworkParams.create(networkName));
         } catch (NetworkNotFoundException ignore) {
         } catch (IOException e) {
             throw new ServerException(e.getLocalizedMessage(), e);
@@ -556,7 +556,7 @@ public class MachineProviderImpl implements MachineInstanceProvider {
                                                       CheServiceImpl service) throws IOException {
 
         for (String network : service.getNetworks()) {
-            docker.connectContainerToNetwork(
+            openShift.connectContainerToNetwork(
                     ConnectContainerToNetworkParams.create(network, new ConnectContainer().withContainer(container)));
         }
     }
