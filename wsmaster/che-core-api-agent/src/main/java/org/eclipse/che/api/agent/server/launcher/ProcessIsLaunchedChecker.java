@@ -50,7 +50,7 @@ public class ProcessIsLaunchedChecker implements AgentLaunchingChecker {
         try (ListLineConsumer lineConsumer = new ListLineConsumer()) {
             InstanceProcess waitProcess = machine.createProcess(command, null);
             waitProcess.start(lineConsumer);
-            return lineConsumer.getText().endsWith("[STDOUT] 0");
+            return lineConsumer.getText().endsWith("[STDOUT] 0") || lineConsumer.getText().endsWith("[STDOUT] 0\n");
         } catch (ConflictException e) {
             throw new MachineException(e.getServiceError());
         }
