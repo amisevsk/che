@@ -29,6 +29,7 @@ import com.openshift.restclient.model.*;
 import com.openshift.restclient.model.deploy.DeploymentTriggerType;
 
 import org.eclipse.che.commons.annotation.Nullable;
+import org.eclipse.che.ide.util.loging.Log;
 import org.eclipse.che.plugin.docker.client.json.ContainerCreated;
 import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
 import org.eclipse.che.plugin.docker.client.json.NetworkCreated;
@@ -147,9 +148,6 @@ public class OpenShiftConnector {
             throw new RuntimeException("Failed to get the ID of the container running in the OpenShift pod");
         }
 
-        String[] cmd = {"/bin/sh", "-c", "date"};
-        Exec exec = createExec(CreateExecParams.create(containerID, cmd));
-        startExec(StartExecParams.create(exec.getId()), null);
         return new ContainerCreated(containerID, null);
     }
 
@@ -278,9 +276,8 @@ public class OpenShiftConnector {
 
         IPod pod = getChePodByContainerId(containerId);
         IPodExec exec = pod.getCapability(IPodExec.class);
-        Options options = new Options().container(containerId)
-                                       .stdErr(true)//.stdErr(params.isDetach() == Boolean.FALSE)
-                                       .stdOut(true);//.stdOut(params.isDetach() == Boolean.FALSE);
+        Options options = new Options().stdErr(params.isDetach() == Boolean.FALSE)
+                                       .stdOut(params.isDetach() == Boolean.FALSE);
 
         ExecHolder holder = new ExecHolder(command, exec, options);
         String execId = String.valueOf(holder.hashCode());
@@ -295,36 +292,59 @@ public class OpenShiftConnector {
         ExecHolder holder = execMap.get(execId);
         IPodExec exec = holder.getExec();
         String[] command = holder.getCommand();
+        LOG.info("startExec Command:");
+        for (String s : command) {
+            LOG.info("\t\t" + s);
+        }
         Options options = holder.getOptions();
         IPodExecOutputListener listener = new IPodExecOutputListener() {
-            // TODO: Log message pumper? Handle execOutputProcessor
+            // TODO : Double check log message type
+            // TODO : should message be trimmed if it ends in newline?
+            // TODO : Why does terminal only launch if in debug mode?
             @Override
-            public void onOpen() {}
+            public void onOpen() {
+                LOG.info("STARTEXEC START ***");
+            }
 
             @Override
             public void onStdOut(String message) {
-                LOG.info("STARTEXEC *** " + message);
+                LOG.info("STARTEXEC STDOUT *** " + message);
+                LogMessage logMessage = new LogMessage(LogMessage.Type.STDOUT, message);
+                if (execOutputProcessor != null) {
+                    execOutputProcessor.process(logMessage);
+                }
             }
 
             @Override
             public void onStdErr(String message) {
-                LOG.info("STARTEXEC *** " + message);
+                LOG.error("STARTEXEC STDERR *** " + message);
+                LogMessage logMessage = new LogMessage(LogMessage.Type.STDERR, message);
+                if (execOutputProcessor != null) {
+                    execOutputProcessor.process(logMessage);
+                }
             }
 
             @Override
             public void onExecErr(String message) {
-                LOG.info("STARTEXEC *** " + message);
+                LOG.error("STARTEXEC EXECERR *** " + message);
+                LogMessage logMessage = new LogMessage(LogMessage.Type.DOCKER, message);
+                if (execOutputProcessor != null) {
+                    execOutputProcessor.process(logMessage);
+                }
             }
 
             @Override
             public void onFailure(IOException e) {
-                LOG.error("STARTEXEC *** " + e.getMessage());
+                LOG.error("STARTEXEC FAILURE*** " + e.getMessage());
             }
 
             @Override
-            public void onClose(int code, String reason) {}
+            public void onClose(int code, String reason) {
+                LOG.info("STARTEXEC CLOSE *** " + code + " : " + reason);
+            }
         };
         exec.start(listener, options, command);
+        execMap.remove(execId);
     }
 
     Map<String, ExecHolder> execMap = new HashMap<>();
@@ -340,17 +360,9 @@ public class OpenShiftConnector {
             this.options = options;
         }
 
-        public String[] getCommand() {
-            return command;
-        }
-
-        public IPodExec getExec() {
-            return exec;
-        }
-
-        public Options getOptions() {
-            return options;
-        }
+        public String[] getCommand() { return command; }
+        public IPodExec getExec() { return exec; }
+        public Options getOptions() { return options; }
     }
 
     private IService getCheServiceBySelector(String selectorKey, String selectorValue) {
