@@ -12,6 +12,7 @@ package org.eclipse.che.plugin.docker.client;
 
 import com.google.common.collect.ImmutableMap;
 import com.openshift.internal.restclient.ResourceFactory;
+import com.openshift.internal.restclient.api.capabilities.PodExec;
 import com.openshift.internal.restclient.model.DeploymentConfig;
 import com.openshift.internal.restclient.model.Pod;
 import com.openshift.internal.restclient.model.Port;
@@ -20,9 +21,14 @@ import com.openshift.restclient.ClientBuilder;
 import com.openshift.restclient.IClient;
 import com.openshift.restclient.IResourceFactory;
 import com.openshift.restclient.ResourceKind;
+import com.openshift.restclient.api.capabilities.IPodExec;
+import com.openshift.restclient.api.capabilities.IPodExec.IPodExecOutputListener;
+import com.openshift.restclient.api.capabilities.IPodExec.Options;
 import com.openshift.restclient.images.DockerImageURI;
 import com.openshift.restclient.model.*;
 import com.openshift.restclient.model.deploy.DeploymentTriggerType;
+
+import org.eclipse.che.commons.annotation.Nullable;
 import org.eclipse.che.plugin.docker.client.json.ContainerCreated;
 import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
 import org.eclipse.che.plugin.docker.client.json.NetworkCreated;
@@ -35,8 +41,10 @@ import org.eclipse.che.plugin.docker.client.json.network.IpamConfig;
 import org.eclipse.che.plugin.docker.client.json.network.Network;
 import org.eclipse.che.plugin.docker.client.json.network.NewNetwork;
 import org.eclipse.che.plugin.docker.client.params.CreateContainerParams;
+import org.eclipse.che.plugin.docker.client.params.CreateExecParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveContainerParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveNetworkParams;
+import org.eclipse.che.plugin.docker.client.params.StartExecParams;
 import org.eclipse.che.plugin.docker.client.params.network.ConnectContainerToNetworkParams;
 import org.eclipse.che.plugin.docker.client.params.network.CreateNetworkParams;
 import org.eclipse.che.plugin.docker.client.params.network.DisconnectContainerFromNetworkParams;
@@ -139,6 +147,9 @@ public class OpenShiftConnector {
             throw new RuntimeException("Failed to get the ID of the container running in the OpenShift pod");
         }
 
+        String[] cmd = {"/bin/sh", "-c", "date"};
+        Exec exec = createExec(CreateExecParams.create(containerID, cmd));
+        startExec(StartExecParams.create(exec.getId()), null);
         return new ContainerCreated(containerID, null);
     }
 
@@ -259,6 +270,87 @@ public class OpenShiftConnector {
                             .withScope("local")
                             .withInternal(false)
                             .withEnableIPv6(false);
+    }
+
+    public Exec createExec(final CreateExecParams params) throws IOException {
+        String[] command = params.getCmd();
+        String containerId = params.getContainer();
+
+        IPod pod = getChePodByContainerId(containerId);
+        IPodExec exec = pod.getCapability(IPodExec.class);
+        Options options = new Options().container(containerId)
+                                       .stdErr(true)//.stdErr(params.isDetach() == Boolean.FALSE)
+                                       .stdOut(true);//.stdOut(params.isDetach() == Boolean.FALSE);
+
+        ExecHolder holder = new ExecHolder(command, exec, options);
+        String execId = String.valueOf(holder.hashCode());
+        execMap.put(execId, holder);
+
+        return new Exec(command, execId);
+
+    }
+
+    public void startExec(final StartExecParams params, @Nullable MessageProcessor<LogMessage> execOutputProcessor) throws IOException {
+        String execId = params.getExecId();
+        ExecHolder holder = execMap.get(execId);
+        IPodExec exec = holder.getExec();
+        String[] command = holder.getCommand();
+        Options options = holder.getOptions();
+        IPodExecOutputListener listener = new IPodExecOutputListener() {
+            // TODO: Log message pumper? Handle execOutputProcessor
+            @Override
+            public void onOpen() {}
+
+            @Override
+            public void onStdOut(String message) {
+                LOG.info("STARTEXEC *** " + message);
+            }
+
+            @Override
+            public void onStdErr(String message) {
+                LOG.info("STARTEXEC *** " + message);
+            }
+
+            @Override
+            public void onExecErr(String message) {
+                LOG.info("STARTEXEC *** " + message);
+            }
+
+            @Override
+            public void onFailure(IOException e) {
+                LOG.error("STARTEXEC *** " + e.getMessage());
+            }
+
+            @Override
+            public void onClose(int code, String reason) {}
+        };
+        exec.start(listener, options, command);
+    }
+
+    Map<String, ExecHolder> execMap = new HashMap<>();
+
+    private class ExecHolder {
+        String[] command;
+        IPodExec exec;
+        Options options;
+
+        public ExecHolder(String[] command, IPodExec exec, Options options) {
+            this.command = command;
+            this.exec = exec;
+            this.options = options;
+        }
+
+        public String[] getCommand() {
+            return command;
+        }
+
+        public IPodExec getExec() {
+            return exec;
+        }
+
+        public Options getOptions() {
+            return options;
+        }
     }
 
     private IService getCheServiceBySelector(String selectorKey, String selectorValue) {
