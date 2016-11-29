@@ -26,6 +26,7 @@ import org.eclipse.che.plugin.docker.client.DockerConnector;
 import org.eclipse.che.plugin.docker.client.Exec;
 import org.eclipse.che.plugin.docker.client.LogMessage;
 import org.eclipse.che.plugin.docker.client.MessageProcessor;
+import org.eclipse.che.plugin.docker.client.OpenShiftConnector;
 import org.eclipse.che.plugin.docker.client.params.CreateExecParams;
 import org.eclipse.che.plugin.docker.client.params.StartExecParams;
 
@@ -45,6 +46,7 @@ import static java.lang.String.format;
  */
 public class DockerProcess extends AbstractMachineProcess implements InstanceProcess {
     private final DockerConnector     docker;
+    private final OpenShiftConnector  openShift;
     private final String              container;
     private final String              pidFilePath;
     private final String              commandLine;
@@ -54,6 +56,7 @@ public class DockerProcess extends AbstractMachineProcess implements InstancePro
 
     @Inject
     public DockerProcess(DockerConnector docker,
+                         OpenShiftConnector openShift,
                          @Assisted Command command,
                          @Assisted("container") String container,
                          @Nullable @Assisted("outputChannel") String outputChannel,
@@ -61,6 +64,7 @@ public class DockerProcess extends AbstractMachineProcess implements InstancePro
                          @Assisted int pid) {
         super(command, pid, outputChannel);
         this.docker = docker;
+        this.openShift = openShift;
         this.container = container;
         this.commandLine = command.getCommandLine();
         this.shellInvoker = firstNonNull(command.getAttributes().get("shell"), "/bin/sh");
@@ -101,14 +105,14 @@ public class DockerProcess extends AbstractMachineProcess implements InstancePro
         final String[] command = {shellInvoker, "-c", shellCommand};
         Exec exec;
         try {
-            exec = docker.createExec(CreateExecParams.create(container, command).withDetach(output == null));
+            exec = openShift.createExec(CreateExecParams.create(container, command).withDetach(output == null));
         } catch (IOException e) {
             throw new MachineException(format("Error occurs while initializing command %s in docker container %s: %s",
                                               Arrays.toString(command), container, e.getMessage()), e);
         }
         started = true;
         try {
-            docker.startExec(StartExecParams.create(exec.getId()), output == null ? null : new LogMessagePrinter(output));
+            openShift.startExec(StartExecParams.create(exec.getId()), output == null ? null : new LogMessagePrinter(output));
         } catch (IOException e) {
             if (output != null && e instanceof SocketTimeoutException) {
                 throw new MachineException(getErrorMessage());
@@ -127,13 +131,13 @@ public class DockerProcess extends AbstractMachineProcess implements InstancePro
         final String[] command = {"/bin/sh", "-c", isAliveCmd};
         Exec exec;
         try {
-            exec = docker.createExec(CreateExecParams.create(container, command).withDetach(false));
+            exec = openShift.createExec(CreateExecParams.create(container, command).withDetach(false));
         } catch (IOException e) {
             throw new MachineException(format("Error occurs while initializing command %s in docker container %s: %s",
                                               Arrays.toString(command), container, e.getMessage()), e);
         }
         try {
-            docker.startExec(StartExecParams.create(exec.getId()), new LogMessagePrinter(output));
+            openShift.startExec(StartExecParams.create(exec.getId()), new LogMessagePrinter(output));
         } catch (IOException e) {
             throw new MachineException(format("Error occurs while executing command %s in docker container %s: %s",
                                               Arrays.toString(exec.getCommand()), container, e.getMessage()), e);
@@ -152,13 +156,13 @@ public class DockerProcess extends AbstractMachineProcess implements InstancePro
             final String[] command = {"/bin/sh", "-c", killCmd};
             Exec exec;
             try {
-                exec = docker.createExec(CreateExecParams.create(container, command).withDetach(true));
+                exec = openShift.createExec(CreateExecParams.create(container, command).withDetach(true));
             } catch (IOException e) {
                 throw new MachineException(format("Error occurs while initializing command %s in docker container %s: %s",
                                                   Arrays.toString(command), container, e.getMessage()), e);
             }
             try {
-                docker.startExec(StartExecParams.create(exec.getId()), MessageProcessor.DEV_NULL);
+                openShift.startExec(StartExecParams.create(exec.getId()), MessageProcessor.DEV_NULL);
             } catch (IOException e) {
                 throw new MachineException(format("Error occurs while executing command %s in docker container %s: %s",
                                                   Arrays.toString(exec.getCommand()), container, e.getMessage()), e);
@@ -170,7 +174,7 @@ public class DockerProcess extends AbstractMachineProcess implements InstancePro
         final StringBuilder errorMessage = new StringBuilder("Command output read timeout is reached.");
         try {
             // check if process is alive
-            final Exec checkProcessExec = docker.createExec(
+            final Exec checkProcessExec = openShift.createExec(
                     CreateExecParams.create(container,
                                             new String[] {"/bin/sh",
                                                           "-c",
@@ -178,7 +182,7 @@ public class DockerProcess extends AbstractMachineProcess implements InstancePro
                                                                  pidFilePath)})
                                     .withDetach(false));
             ValueHolder<String> pidHolder = new ValueHolder<>();
-            docker.startExec(StartExecParams.create(checkProcessExec.getId()), message -> {
+            openShift.startExec(StartExecParams.create(checkProcessExec.getId()), message -> {
                 if (message.getType() == LogMessage.Type.STDOUT) {
                     pidHolder.set(message.getContent());
                 }

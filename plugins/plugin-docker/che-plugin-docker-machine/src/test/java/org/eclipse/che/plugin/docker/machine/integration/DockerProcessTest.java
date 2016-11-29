@@ -19,6 +19,7 @@ import org.eclipse.che.plugin.docker.client.DockerConnector;
 import org.eclipse.che.plugin.docker.client.DockerConnectorConfiguration;
 import org.eclipse.che.plugin.docker.client.DockerRegistryAuthResolver;
 import org.eclipse.che.plugin.docker.client.InitialAuthConfig;
+import org.eclipse.che.plugin.docker.client.OpenShiftConnector;
 import org.eclipse.che.plugin.docker.client.connection.DockerConnectionFactory;
 import org.eclipse.che.plugin.docker.client.helper.DefaultNetworkFinder;
 import org.eclipse.che.plugin.docker.client.json.ContainerConfig;
@@ -28,6 +29,7 @@ import org.eclipse.che.plugin.docker.client.params.RemoveContainerParams;
 import org.eclipse.che.plugin.docker.client.params.StartContainerParams;
 import org.eclipse.che.plugin.docker.client.params.StopContainerParams;
 import org.eclipse.che.plugin.docker.machine.DockerProcess;
+import org.mockito.Mock;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -42,6 +44,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class DockerProcessTest {
     private DockerConnectorConfiguration dockerConnectorConfiguration;
+    @Mock
+    private OpenShiftConnector         openShiftConnectorMock;
     private DockerConnector              docker;
     private String                       container;
 
@@ -98,6 +102,7 @@ public class DockerProcessTest {
         }
         Command command = new CommandImpl("tailf", "tail -f /dev/null", "mvn");
         final DockerProcess dockerProcess = new DockerProcess(docker,
+                                                              openShiftConnectorMock,
                                                               command,
                                                               container,
                                                               "outputChannel",

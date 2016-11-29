@@ -180,12 +180,12 @@ public class DockerInstance extends AbstractInstance {
     public List<InstanceProcess> getProcesses() throws MachineException {
         List<InstanceProcess> processes = new LinkedList<>();
         try {
-            final Exec exec = docker.createExec(CreateExecParams.create(container,
+            final Exec exec = openShift.createExec(CreateExecParams.create(container,
                                                                         new String[] {"/bin/sh",
                                                                                       "-c",
                                                                                       GET_ALIVE_PROCESSES_COMMAND})
                                                                 .withDetach(false));
-            docker.startExec(StartExecParams.create(exec.getId()), logMessage -> {
+            openShift.startExec(StartExecParams.create(exec.getId()), logMessage -> {
                 final String pidFilePath = logMessage.getContent().trim();
                 final Matcher matcher = PID_FILE_PATH_PATTERN.matcher(pidFilePath);
                 if (matcher.matches()) {
@@ -339,8 +339,8 @@ public class DockerInstance extends AbstractInstance {
 
         ListLineConsumer lines = new ListLineConsumer();
         try {
-            Exec exec = docker.createExec(CreateExecParams.create(container, command).withDetach(false));
-            docker.startExec(StartExecParams.create(exec.getId()), new LogMessagePrinter(lines, LogMessage::getContent));
+            Exec exec = openShift.createExec(CreateExecParams.create(container, command).withDetach(false));
+            openShift.startExec(StartExecParams.create(exec.getId()), new LogMessagePrinter(lines, LogMessage::getContent));
         } catch (IOException e) {
             throw new MachineException(format("Error occurs while initializing command %s in docker container %s: %s",
                                               Arrays.toString(command), container, e.getLocalizedMessage()), e);

@@ -24,6 +24,7 @@ import org.eclipse.che.api.user.server.UserManager;
 import org.eclipse.che.plugin.docker.client.DockerConnector;
 import org.eclipse.che.plugin.docker.client.Exec;
 import org.eclipse.che.plugin.docker.client.LogMessage;
+import org.eclipse.che.plugin.docker.client.OpenShiftConnector;
 import org.eclipse.che.plugin.docker.client.params.CreateExecParams;
 import org.eclipse.che.plugin.docker.client.params.StartExecParams;
 import org.slf4j.Logger;
@@ -48,6 +49,7 @@ public class KeysInjector {
 
     private final EventService         eventService;
     private final DockerConnector      docker;
+    private final OpenShiftConnector   openShift;
     private final SshManager           sshManager;
     private final UserManager          userManager;
     // TODO replace with WorkspaceManager
@@ -56,11 +58,13 @@ public class KeysInjector {
     @Inject
     public KeysInjector(EventService eventService,
                         DockerConnector docker,
+                        OpenShiftConnector openShift,
                         SshManager sshManager,
                         CheEnvironmentEngine environmentEngine,
                         UserManager userManager) {
         this.eventService = eventService;
         this.docker = docker;
+        this.openShift = openShift;
         this.sshManager = sshManager;
         this.environmentEngine = environmentEngine;
         this.userManager = userManager;
@@ -130,12 +134,12 @@ public class KeysInjector {
                                    .append("' >> ~/.ssh/authorized_keys");
                         }
 
-                        final Exec exec = docker.createExec(CreateExecParams.create(containerId,
+                        final Exec exec = openShift.createExec(CreateExecParams.create(containerId,
                                                                                     new String[] {"/bin/bash",
                                                                                                   "-c",
                                                                                                   command.toString()})
                                                                             .withDetach(true));
-                        docker.startExec(StartExecParams.create(exec.getId()), logMessage -> {
+                        openShift.startExec(StartExecParams.create(exec.getId()), logMessage -> {
                             if (logMessage.getType() == LogMessage.Type.STDERR) {
                                 try {
                                     machine.getLogger().writeLine("Error of injection public ssh keys. " + logMessage.getContent());
