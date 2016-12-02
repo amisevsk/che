@@ -56,6 +56,8 @@ public class DockerInstanceRuntimeInfoTest {
     private ContainerConfig containerConfig;
     @Mock
     private NetworkSettings networkSettings;
+    @Mock
+    private HostPortEvaluationStrategyProvider provider;
 
     private DockerInstanceRuntimeInfo runtimeInfo;
 
@@ -65,6 +67,7 @@ public class DockerInstanceRuntimeInfoTest {
                                                     null,
                                                     CONTAINER_HOST,
                                                     machineConfig,
+                                                    provider,
                                                     Collections.emptySet(),
                                                     Collections.emptySet());
 
@@ -207,6 +210,7 @@ public class DockerInstanceRuntimeInfoTest {
                                                     null,
                                                     CONTAINER_HOST,
                                                     machineConfig,
+                                                    provider,
                                                     Collections.emptySet(),
                                                     Collections.emptySet());
         final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
@@ -263,6 +267,7 @@ public class DockerInstanceRuntimeInfoTest {
                                                     null,
                                                     CONTAINER_HOST,
                                                     machineConfig,
+                                                    provider,
                                                     Collections.emptySet(),
                                                     Collections.emptySet());
         final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
@@ -295,6 +300,7 @@ public class DockerInstanceRuntimeInfoTest {
                                                     null,
                                                     CONTAINER_HOST,
                                                     machineConfig,
+                                                    provider,
                                                     Collections.emptySet(),
                                                     Collections.emptySet());
         Map<String, List<PortBinding>> ports = new HashMap<>();
@@ -362,6 +368,7 @@ public class DockerInstanceRuntimeInfoTest {
                                                     null,
                                                     CONTAINER_HOST,
                                                     machineConfig,
+                                                    provider,
                                                     Collections.emptySet(),
                                                     Collections.emptySet());
         Map<String, List<PortBinding>> ports = new HashMap<>();
@@ -438,6 +445,7 @@ public class DockerInstanceRuntimeInfoTest {
                                                     null,
                                                     CONTAINER_HOST,
                                                     machineConfig,
+                                                    provider,
                                                     Collections.emptySet(),
                                                     Collections.emptySet());
         final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
@@ -493,6 +501,7 @@ public class DockerInstanceRuntimeInfoTest {
                                                     null,
                                                     CONTAINER_HOST,
                                                     machineConfig,
+                                                    provider,
                                                     devSystemServersConfigs,
                                                     commonSystemServersConfigs);
         final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
@@ -554,6 +563,7 @@ public class DockerInstanceRuntimeInfoTest {
                                                     null,
                                                     CONTAINER_HOST,
                                                     machineConfig,
+                                                    provider,
                                                     devSystemServersConfigs,
                                                     commonSystemServersConfigs);
         final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
@@ -611,6 +621,7 @@ public class DockerInstanceRuntimeInfoTest {
                                                            null,
                                                            CONTAINER_HOST,
                                                            machineConfig,
+                                                           provider,
                                                            devSystemServersConfigs,
                                                            commonSystemServersConfigs);
         final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
@@ -654,6 +665,7 @@ public class DockerInstanceRuntimeInfoTest {
                                                            CONTAINER_HOST_EXTERNAL,
                                                            CONTAINER_HOST,
                                                            machineConfig,
+                                                           provider,
                                                            devSystemServersConfigs,
                                                            commonSystemServersConfigs);
         final HashMap<String, ServerImpl> expectedServers = new HashMap<>();

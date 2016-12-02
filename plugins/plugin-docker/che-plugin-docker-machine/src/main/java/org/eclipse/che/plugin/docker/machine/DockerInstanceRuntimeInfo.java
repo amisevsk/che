@@ -94,6 +94,7 @@ public class DockerInstanceRuntimeInfo implements MachineRuntimeInfo {
                                      @Assisted("externalhost") @Nullable String containerExternalHostname,
                                      @Assisted("internalhost") String containerInternalHostname,
                                      @Assisted MachineConfig machineConfig,
+                                     HostPortEvaluationStrategyProvider provider,
                                      @Named("machine.docker.dev_machine.machine_servers") Set<ServerConf> devMachineSystemServers,
                                      @Named("machine.docker.machine_servers") Set<ServerConf> allMachinesSystemServers) {
         this.info = containerInfo;
@@ -108,6 +109,9 @@ public class DockerInstanceRuntimeInfo implements MachineRuntimeInfo {
                                                                srvConf.getPort() :
                                                                srvConf.getPort() + "/tcp",
                                                     ServerConfImpl::new));
+
+        HostPortEvaluationStrategy strat = provider.getStrategy(containerInfo);
+        System.out.println("Strategy obtained!");
     }
 
     @Override
@@ -246,6 +250,12 @@ public class DockerInstanceRuntimeInfo implements MachineRuntimeInfo {
         } else {
             labels = Collections.emptyMap();
         }
+        Map<String, ServerImpl> servers;
+
+        servers = getServersWithFilledPorts(containerExternalHostname, containerInternalHostname, ports);
+        servers = addRefAndUrlToServers(servers, labels);
+        servers = addDefaultReferenceForServersWithoutReference(servers);
+//        return servers;
         return addDefaultReferenceForServersWithoutReference(
                 addRefAndUrlToServers(
                         getServersWithFilledPorts(containerExternalHostname,

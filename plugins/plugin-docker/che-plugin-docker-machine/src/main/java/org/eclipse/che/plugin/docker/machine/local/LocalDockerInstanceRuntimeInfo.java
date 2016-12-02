@@ -17,6 +17,7 @@ import org.eclipse.che.api.core.model.machine.ServerConf;
 import org.eclipse.che.commons.annotation.Nullable;
 import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
 import org.eclipse.che.plugin.docker.machine.DockerInstanceRuntimeInfo;
+import org.eclipse.che.plugin.docker.machine.HostPortEvaluationStrategyProvider;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -55,6 +56,7 @@ public class LocalDockerInstanceRuntimeInfo extends DockerInstanceRuntimeInfo {
                                           @Assisted("externalhost") @Nullable String containerExternalHostname,
                                           @Assisted("internalhost") String containerInternalHostname,
                                           @Assisted MachineConfig machineConfig,
+                                          HostPortEvaluationStrategyProvider provider,
                                           @Nullable @Named("che.docker.ip") String dockerNodeInternalHostname,
                                           @Nullable @Named("che.docker.ip.external") String dockerNodeExternalHostname,
                                           @Named("machine.docker.dev_machine.machine_servers") Set<ServerConf> devMachineServers,
@@ -69,6 +71,7 @@ public class LocalDockerInstanceRuntimeInfo extends DockerInstanceRuntimeInfo {
               internalHostnameWithPrecedence(dockerNodeInternalHostname,
                                            containerInternalHostname),
               machineConfig,
+              provider,
               devMachineServers,
               allMachinesServers);
     }
