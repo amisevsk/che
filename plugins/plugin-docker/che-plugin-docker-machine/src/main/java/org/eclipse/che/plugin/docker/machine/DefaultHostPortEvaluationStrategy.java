@@ -1,5 +1,15 @@
-package org.eclipse.che.plugin.docker.machine;
+/*******************************************************************************
+ * Copyright (c) 2012-2016 Red Hat Inc.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *   Red Hat Inc. - initial API and implementation
+ *******************************************************************************/
 
+package org.eclipse.che.plugin.docker.machine;
 
 import java.util.Collections;
 import java.util.List;
@@ -23,9 +33,6 @@ public class DefaultHostPortEvaluationStrategy implements HostPortEvaluationStra
     protected static final String SERVER_CONF_LABEL_PROTOCOL_KEY = "che:server:%s:protocol";
     protected static final String SERVER_CONF_LABEL_PATH_KEY     = "che:server:%s:path";
 
-
-    private final ContainerInfo containerInfo;
-
     private Map<String, ServerConfImpl> serverConf;
 
     private final Map<String, List<PortBinding>> ports;
@@ -44,7 +51,6 @@ public class DefaultHostPortEvaluationStrategy implements HostPortEvaluationStra
                                              @Nullable @Named("che.docker.ip") String internalHostname,
                                              @Nullable @Named("che.docker.ip.external") String externalHostname,
                                              @Nullable @Named("che.docker.ip.use_internal_address") boolean useInternal) {
-        this.containerInfo    = containerInfo;
         this.serverConf       = serverConf;
 
         if (containerInfo.getNetworkSettings() != null && containerInfo.getNetworkSettings().getPorts() != null) {
@@ -82,6 +88,8 @@ public class DefaultHostPortEvaluationStrategy implements HostPortEvaluationStra
 
         this.externalHostname = externalHostname != null ?
                                 externalHostname :
+                                internalHostname != null ?
+                                internalHostname :
                                 dockerAddress;
     }
 
@@ -96,6 +104,9 @@ public class DefaultHostPortEvaluationStrategy implements HostPortEvaluationStra
         }
 
         ServerConfImpl serverConf = getServerConfImpl(portProtocol);
+        if (serverConf.getRef() == null) {
+            serverConf.setRef("Server-" + portProtocol.replace('/', '-'));
+        }
 
         String ephemeralPort = portBinding.getHostPort();
         String exposedPort   = portProtocol.split("/")[0];
@@ -116,6 +127,8 @@ public class DefaultHostPortEvaluationStrategy implements HostPortEvaluationStra
                 if (pathSuffix.charAt(0) != '/') {
                     pathSuffix = "/" + pathSuffix;
                 }
+            } else {
+                pathSuffix = "";
             }
             internalUrl = serverConf.getProtocol() + "://" + internalAddressAndPort + pathSuffix;
             externalUrl = serverConf.getProtocol() + "://" + externalAddressAndPort + pathSuffix;
@@ -144,8 +157,7 @@ public class DefaultHostPortEvaluationStrategy implements HostPortEvaluationStra
 
         ref = labels.get(String.format(SERVER_CONF_LABEL_REF_KEY, portProtocol));
         if (ref == null) {
-            ref = labels.getOrDefault(String.format(SERVER_CONF_LABEL_REF_KEY, port),
-                                      "Server-" + portProtocol.replace("/", "-"));
+            ref = labels.get(String.format(SERVER_CONF_LABEL_REF_KEY, port));
         }
 
         protocol = labels.get(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, portProtocol));
