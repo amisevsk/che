@@ -46,8 +46,7 @@ public class LocalDockerModule extends AbstractModule {
                         .implement(Instance.class, DockerInstance.class)
                         .implement(InstanceProcess.class, DockerProcess.class)
                         .implement(DockerNode.class, LocalDockerNode.class)
-                        .implement(DockerInstanceRuntimeInfo.class,
-                                   org.eclipse.che.plugin.docker.machine.local.LocalDockerInstanceRuntimeInfo.class)
+                        .implement(DockerInstanceRuntimeInfo.class, DockerInstanceRuntimeInfo.class)
                         .build(org.eclipse.che.plugin.docker.machine.DockerMachineFactory.class));
 
         install(new FactoryModuleBuilder()
