@@ -34,9 +34,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.eclipse.che.plugin.docker.machine.DefaultHostPortEvaluationStrategy.SERVER_CONF_LABEL_PATH_KEY;
-import static org.eclipse.che.plugin.docker.machine.DefaultHostPortEvaluationStrategy.SERVER_CONF_LABEL_PROTOCOL_KEY;
-import static org.eclipse.che.plugin.docker.machine.DefaultHostPortEvaluationStrategy.SERVER_CONF_LABEL_REF_KEY;
+import static org.eclipse.che.plugin.docker.machine.DefaultServerEvaluationStrategy.SERVER_CONF_LABEL_PATH_KEY;
+import static org.eclipse.che.plugin.docker.machine.DefaultServerEvaluationStrategy.SERVER_CONF_LABEL_PROTOCOL_KEY;
+import static org.eclipse.che.plugin.docker.machine.DefaultServerEvaluationStrategy.SERVER_CONF_LABEL_REF_KEY;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -59,12 +59,12 @@ public class DockerInstanceRuntimeInfoTest {
 
     private DockerInstanceRuntimeInfo runtimeInfo;
 
-    private static HostPortEvaluationStrategyProvider provider = new HostPortEvaluationStrategyProvider() {
+    private static ServerEvaluationStrategyProvider provider = new ServerEvaluationStrategyProvider() {
 
         @Override
-        public HostPortEvaluationStrategy getStrategy(ContainerInfo info,
+        public ServerEvaluationStrategy getStrategy(ContainerInfo info,
                                                       Map<String, ServerConfImpl> serverConf) {
-            return new DefaultHostPortEvaluationStrategy(info, serverConf, CONTAINER_HOST, null, false);
+            return new DefaultServerEvaluationStrategy(info, serverConf, CONTAINER_HOST, null, false);
         }
     };
 
@@ -652,12 +652,12 @@ public class DockerInstanceRuntimeInfoTest {
         devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
         when(machineConfig.isDev()).thenReturn(true);
 
-        HostPortEvaluationStrategyProvider providerWithExternalAddress = new HostPortEvaluationStrategyProvider() {
+        ServerEvaluationStrategyProvider providerWithExternalAddress = new ServerEvaluationStrategyProvider() {
 
             @Override
-            public HostPortEvaluationStrategy getStrategy(ContainerInfo info,
+            public ServerEvaluationStrategy getStrategy(ContainerInfo info,
                                                           Map<String, ServerConfImpl> serverConf) {
-                return new DefaultHostPortEvaluationStrategy(info, serverConf, CONTAINER_HOST, CONTAINER_HOST_EXTERNAL, false);
+                return new DefaultServerEvaluationStrategy(info, serverConf, CONTAINER_HOST, CONTAINER_HOST_EXTERNAL, false);
             }
         };
 
@@ -706,11 +706,11 @@ public class DockerInstanceRuntimeInfoTest {
         devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
         when(machineConfig.isDev()).thenReturn(true);
 
-        HostPortEvaluationStrategyProvider providerWithInternal = new HostPortEvaluationStrategyProvider() {
+        ServerEvaluationStrategyProvider providerWithInternal = new ServerEvaluationStrategyProvider() {
 
             @Override
-            public HostPortEvaluationStrategy getStrategy(ContainerInfo info, Map<String, ServerConfImpl> serverConf) {
-                return new DefaultHostPortEvaluationStrategy(info, serverConf, null, null, true);
+            public ServerEvaluationStrategy getStrategy(ContainerInfo info, Map<String, ServerConfImpl> serverConf) {
+                return new DefaultServerEvaluationStrategy(info, serverConf, null, null, true);
             }
         };
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
@@ -760,11 +760,11 @@ public class DockerInstanceRuntimeInfoTest {
         devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
         when(machineConfig.isDev()).thenReturn(true);
 
-        HostPortEvaluationStrategyProvider providerWithoutInternal = new HostPortEvaluationStrategyProvider() {
+        ServerEvaluationStrategyProvider providerWithoutInternal = new ServerEvaluationStrategyProvider() {
 
             @Override
-            public HostPortEvaluationStrategy getStrategy(ContainerInfo info, Map<String, ServerConfImpl> serverConf) {
-                return new DefaultHostPortEvaluationStrategy(info, serverConf, null, null, false);
+            public ServerEvaluationStrategy getStrategy(ContainerInfo info, Map<String, ServerConfImpl> serverConf) {
+                return new DefaultServerEvaluationStrategy(info, serverConf, null, null, false);
             }
         };
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
@@ -814,11 +814,11 @@ public class DockerInstanceRuntimeInfoTest {
         devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
         when(machineConfig.isDev()).thenReturn(true);
 
-        HostPortEvaluationStrategyProvider providerWithoutInternal = new HostPortEvaluationStrategyProvider() {
+        ServerEvaluationStrategyProvider providerWithoutInternal = new ServerEvaluationStrategyProvider() {
 
             @Override
-            public HostPortEvaluationStrategy getStrategy(ContainerInfo info, Map<String, ServerConfImpl> serverConf) {
-                return new DefaultHostPortEvaluationStrategy(info, serverConf, null, CONTAINER_HOST_EXTERNAL, true);
+            public ServerEvaluationStrategy getStrategy(ContainerInfo info, Map<String, ServerConfImpl> serverConf) {
+                return new DefaultServerEvaluationStrategy(info, serverConf, null, CONTAINER_HOST_EXTERNAL, true);
             }
         };
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,

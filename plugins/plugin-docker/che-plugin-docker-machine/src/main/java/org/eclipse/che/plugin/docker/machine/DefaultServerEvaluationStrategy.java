@@ -27,7 +27,7 @@ import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;
 import com.google.inject.name.Named;
 
-public class DefaultHostPortEvaluationStrategy implements HostPortEvaluationStrategy {
+public class DefaultServerEvaluationStrategy implements ServerEvaluationStrategy {
 
     protected static final String SERVER_CONF_LABEL_REF_KEY      = "che:server:%s:ref";
     protected static final String SERVER_CONF_LABEL_PROTOCOL_KEY = "che:server:%s:protocol";
@@ -46,7 +46,7 @@ public class DefaultHostPortEvaluationStrategy implements HostPortEvaluationStra
     private boolean useEphemeralPorts;
 
     @Inject
-    public DefaultHostPortEvaluationStrategy(@Assisted ContainerInfo containerInfo,
+    public DefaultServerEvaluationStrategy(@Assisted ContainerInfo containerInfo,
                                              @Assisted Map<String, ServerConfImpl> serverConf,
                                              @Nullable @Named("che.docker.ip") String internalHostname,
                                              @Nullable @Named("che.docker.ip.external") String externalHostname,

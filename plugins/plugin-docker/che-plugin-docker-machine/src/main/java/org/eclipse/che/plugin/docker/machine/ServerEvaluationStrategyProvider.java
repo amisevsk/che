@@ -11,9 +11,15 @@
 
 package org.eclipse.che.plugin.docker.machine;
 
-import org.eclipse.che.api.machine.server.model.impl.ServerImpl;
+import java.util.Map;
 
-public interface HostPortEvaluationStrategy {
+import org.eclipse.che.api.machine.server.model.impl.ServerConfImpl;
+import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
 
-    public ServerImpl getServer(String portProtocol);
+import com.google.inject.assistedinject.Assisted;
+
+public interface ServerEvaluationStrategyProvider {
+
+    public ServerEvaluationStrategy getStrategy(@Assisted ContainerInfo info,
+                                                  @Assisted Map<String, ServerConfImpl> serverConf);
 }
