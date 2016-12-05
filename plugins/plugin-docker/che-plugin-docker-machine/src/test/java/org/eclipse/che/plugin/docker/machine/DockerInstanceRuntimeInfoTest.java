@@ -34,10 +34,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.eclipse.che.plugin.docker.machine.DockerInstanceRuntimeInfo.SERVER_CONF_LABEL_PATH_SUFFIX;
-import static org.eclipse.che.plugin.docker.machine.DockerInstanceRuntimeInfo.SERVER_CONF_LABEL_PREFIX;
-import static org.eclipse.che.plugin.docker.machine.DockerInstanceRuntimeInfo.SERVER_CONF_LABEL_PROTOCOL_SUFFIX;
-import static org.eclipse.che.plugin.docker.machine.DockerInstanceRuntimeInfo.SERVER_CONF_LABEL_REF_SUFFIX;
+import static org.eclipse.che.plugin.docker.machine.DefaultHostPortEvaluationStrategy.SERVER_CONF_LABEL_PATH_KEY;
+import static org.eclipse.che.plugin.docker.machine.DefaultHostPortEvaluationStrategy.SERVER_CONF_LABEL_PROTOCOL_KEY;
+import static org.eclipse.che.plugin.docker.machine.DefaultHostPortEvaluationStrategy.SERVER_CONF_LABEL_REF_KEY;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -47,6 +46,7 @@ public class DockerInstanceRuntimeInfoTest {
     private static final String CONTAINER_HOST           = "container-host.com";
     private static final String CONTAINER_HOST_EXTERNAL  = "container-host-ext.com";
     private static final String DEFAULT_ADDRESS          = "192.168.1.1";
+    private static final String DEFAULT_ADDRESS_INTERNAL = "172.17.0.1";
 
     @Mock
     private ContainerInfo   containerInfo;
@@ -56,16 +56,22 @@ public class DockerInstanceRuntimeInfoTest {
     private ContainerConfig containerConfig;
     @Mock
     private NetworkSettings networkSettings;
-    @Mock
-    private HostPortEvaluationStrategyProvider provider;
 
     private DockerInstanceRuntimeInfo runtimeInfo;
 
+    private static HostPortEvaluationStrategyProvider provider = new HostPortEvaluationStrategyProvider() {
+
+        @Override
+        public HostPortEvaluationStrategy getStrategy(ContainerInfo info,
+                                                      Map<String, ServerConfImpl> serverConf) {
+            return new DefaultHostPortEvaluationStrategy(info, serverConf, CONTAINER_HOST, null, false);
+        }
+    };
+
     @BeforeMethod
     public void setUp() {
+
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
-                                                    null,
-                                                    CONTAINER_HOST,
                                                     machineConfig,
                                                     provider,
                                                     Collections.emptySet(),
@@ -207,8 +213,6 @@ public class DockerInstanceRuntimeInfoTest {
         serversConfigs.add(new ServerConfImpl("myserv2", "100100/udp", "dhcp", "/some"));
         serversConfigs.add(new ServerConfImpl(null, "8000/tcp", "tcp", "/path"));
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
-                                                    null,
-                                                    CONTAINER_HOST,
                                                     machineConfig,
                                                     provider,
                                                     Collections.emptySet(),
@@ -264,8 +268,6 @@ public class DockerInstanceRuntimeInfoTest {
         serversConfigs.add(new ServerConfImpl("myserv1", "8080", "http", "/some"));
         serversConfigs.add(new ServerConfImpl("myserv1-tftp", "8080/udp", "tftp", "path"));
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
-                                                    null,
-                                                    CONTAINER_HOST,
                                                     machineConfig,
                                                     provider,
                                                     Collections.emptySet(),
@@ -297,8 +299,6 @@ public class DockerInstanceRuntimeInfoTest {
     public void shouldAddRefUrlPathToServerFromLabels() throws Exception {
         // given
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
-                                                    null,
-                                                    CONTAINER_HOST,
                                                     machineConfig,
                                                     provider,
                                                     Collections.emptySet(),
@@ -315,15 +315,15 @@ public class DockerInstanceRuntimeInfoTest {
                                                                          .withHostPort("32102")));
         ports.put("8000/tcp", Collections.singletonList(new PortBinding().withHostIp(DEFAULT_ADDRESS)
                                                                          .withHostPort("32103")));
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8080/tcp" + SERVER_CONF_LABEL_REF_SUFFIX, "myserv1");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8080/tcp" + SERVER_CONF_LABEL_PROTOCOL_SUFFIX, "http");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8080/tcp" + SERVER_CONF_LABEL_PATH_SUFFIX, "/some/path");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8080/udp" + SERVER_CONF_LABEL_REF_SUFFIX, "myserv1-tftp");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8080/udp" + SERVER_CONF_LABEL_PROTOCOL_SUFFIX, "tftp");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "100100/udp" + SERVER_CONF_LABEL_REF_SUFFIX, "myserv2");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "100100/udp" + SERVER_CONF_LABEL_PROTOCOL_SUFFIX, "dhcp");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "100100/udp" + SERVER_CONF_LABEL_PATH_SUFFIX, "some/path");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8000/tcp" + SERVER_CONF_LABEL_PROTOCOL_SUFFIX, "tcp");
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY, "8080/tcp"), "myserv1");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "8080/tcp"), "http");
+        labels.put(String.format(SERVER_CONF_LABEL_PATH_KEY, "8080/tcp"), "/some/path");
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY, "8080/udp"), "myserv1-tftp");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "8080/udp"), "tftp");
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY, "100100/udp"), "myserv2");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "100100/udp"), "dhcp");
+        labels.put(String.format(SERVER_CONF_LABEL_PATH_KEY, "100100/udp"), "some/path");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "8000/tcp"), "tcp");
         final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
         expectedServers.put("8080/tcp", new ServerImpl("myserv1",
                                                        "http",
@@ -365,8 +365,6 @@ public class DockerInstanceRuntimeInfoTest {
     public void shouldAllowToUsePortFromDockerLabelsWithoutTransportProtocol() throws Exception {
         // given
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
-                                                    null,
-                                                    CONTAINER_HOST,
                                                     machineConfig,
                                                     provider,
                                                     Collections.emptySet(),
@@ -381,12 +379,12 @@ public class DockerInstanceRuntimeInfoTest {
                                                                          .withHostPort("32102")));
         ports.put("8000/tcp", Collections.singletonList(new PortBinding().withHostIp(DEFAULT_ADDRESS)
                                                                          .withHostPort("32103")));
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8080" + SERVER_CONF_LABEL_REF_SUFFIX, "myserv1");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8080" + SERVER_CONF_LABEL_PROTOCOL_SUFFIX, "http");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8080/udp" + SERVER_CONF_LABEL_REF_SUFFIX, "myserv1-tftp");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8080/udp" + SERVER_CONF_LABEL_PROTOCOL_SUFFIX, "tftp");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8000" + SERVER_CONF_LABEL_REF_SUFFIX, "myserv2");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8000/tcp" + SERVER_CONF_LABEL_PROTOCOL_SUFFIX, "tcp");
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY, "8080"), "myserv1");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "8080"), "http");
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY, "8080/udp"), "myserv1-tftp");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "8080/udp"), "tftp");
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY, "8000"), "myserv2");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "8000/tcp"), "tcp");
         final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
         expectedServers.put("8080/tcp", new ServerImpl("myserv1",
                                                        "http",
@@ -432,18 +430,16 @@ public class DockerInstanceRuntimeInfoTest {
                                                                            .withHostPort("32101")));
         ports.put("8080/udp", Collections.singletonList(new PortBinding().withHostIp(DEFAULT_ADDRESS)
                                                                          .withHostPort("32102")));
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8080/tcp" + SERVER_CONF_LABEL_REF_SUFFIX, "myserv1label");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8080/tcp" + SERVER_CONF_LABEL_PROTOCOL_SUFFIX, "https");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8080/udp" + SERVER_CONF_LABEL_REF_SUFFIX, "myserv1-tftp");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "8080/udp" + SERVER_CONF_LABEL_PROTOCOL_SUFFIX, "tftp");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "100100/udp" + SERVER_CONF_LABEL_REF_SUFFIX, "myserv2label");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "100100/udp" + SERVER_CONF_LABEL_PROTOCOL_SUFFIX, "dhcp");
-        labels.put(SERVER_CONF_LABEL_PREFIX + "100100/udp" + SERVER_CONF_LABEL_PATH_SUFFIX, "/path");
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY, "8080/tcp"), "myserv1label");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "8080/tcp"), "https");
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY, "8080/udp"), "myserv1-tftp");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "8080/udp"), "tftp");
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY, "100100/udp"), "myserv2label");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "100100/udp"), "dhcp");
+        labels.put(String.format(SERVER_CONF_LABEL_PATH_KEY, "100100/udp"), "/path");
         serversConfigs.add(new ServerConfImpl("myserv1conf", "8080/tcp", "http", null));
         serversConfigs.add(new ServerConfImpl(null, "8080/udp", null, "some/path"));
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
-                                                    null,
-                                                    CONTAINER_HOST,
                                                     machineConfig,
                                                     provider,
                                                     Collections.emptySet(),
@@ -498,8 +494,6 @@ public class DockerInstanceRuntimeInfoTest {
         devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-tcp", "4305/tcp", "http", null));
         when(machineConfig.isDev()).thenReturn(false);
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
-                                                    null,
-                                                    CONTAINER_HOST,
                                                     machineConfig,
                                                     provider,
                                                     devSystemServersConfigs,
@@ -560,8 +554,6 @@ public class DockerInstanceRuntimeInfoTest {
         devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
         when(machineConfig.isDev()).thenReturn(true);
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
-                                                    null,
-                                                    CONTAINER_HOST,
                                                     machineConfig,
                                                     provider,
                                                     devSystemServersConfigs,
@@ -618,8 +610,6 @@ public class DockerInstanceRuntimeInfoTest {
         devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
         when(machineConfig.isDev()).thenReturn(true);
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
-                                                           null,
-                                                           CONTAINER_HOST,
                                                            machineConfig,
                                                            provider,
                                                            devSystemServersConfigs,
@@ -661,13 +651,21 @@ public class DockerInstanceRuntimeInfoTest {
         Set<ServerConf> devSystemServersConfigs = new HashSet<>();
         devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
         when(machineConfig.isDev()).thenReturn(true);
+
+        HostPortEvaluationStrategyProvider providerWithExternalAddress = new HostPortEvaluationStrategyProvider() {
+
+            @Override
+            public HostPortEvaluationStrategy getStrategy(ContainerInfo info,
+                                                          Map<String, ServerConfImpl> serverConf) {
+                return new DefaultHostPortEvaluationStrategy(info, serverConf, CONTAINER_HOST, CONTAINER_HOST_EXTERNAL, false);
+            }
+        };
+
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
-                                                           CONTAINER_HOST_EXTERNAL,
-                                                           CONTAINER_HOST,
-                                                           machineConfig,
-                                                           provider,
-                                                           devSystemServersConfigs,
-                                                           commonSystemServersConfigs);
+                                                    machineConfig,
+                                                    providerWithExternalAddress,
+                                                    devSystemServersConfigs,
+                                                    commonSystemServersConfigs);
         final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
         expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
                                                               "http",
@@ -689,5 +687,166 @@ public class DockerInstanceRuntimeInfoTest {
 
         // then
         assertEquals(servers, expectedServers);
+    }
+
+    @Test
+    public void shouldUseExposedPortsWhenUsingInternalAddresses() throws Exception {
+        //given
+        when(networkSettings.getIpAddress()).thenReturn(DEFAULT_ADDRESS_INTERNAL);
+        when(networkSettings.getGateway()).thenReturn(DEFAULT_ADDRESS);
+        Map<String, List<PortBinding>> ports = new HashMap<>();
+        when(networkSettings.getPorts()).thenReturn(ports);
+        ports.put("4301/tcp", Collections.singletonList(new PortBinding().withHostIp(DEFAULT_ADDRESS)
+                                                                .withHostPort("32100")));
+        ports.put("4305/udp", Collections.singletonList(new PortBinding().withHostIp(DEFAULT_ADDRESS)
+                                                                .withHostPort("32103")));
+        Set<ServerConf> commonSystemServersConfigs = new HashSet<>();
+        commonSystemServersConfigs.add(new ServerConfImpl("sysServer1-tcp", "4301/tcp", "http", "/some/path1"));
+        Set<ServerConf> devSystemServersConfigs = new HashSet<>();
+        devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
+        when(machineConfig.isDev()).thenReturn(true);
+
+        HostPortEvaluationStrategyProvider providerWithInternal = new HostPortEvaluationStrategyProvider() {
+
+            @Override
+            public HostPortEvaluationStrategy getStrategy(ContainerInfo info, Map<String, ServerConfImpl> serverConf) {
+                return new DefaultHostPortEvaluationStrategy(info, serverConf, null, null, true);
+            }
+        };
+        runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
+                                                    machineConfig,
+                                                    providerWithInternal,
+                                                    devSystemServersConfigs,
+                                                    commonSystemServersConfigs);
+
+        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
+        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
+                                                       "http",
+                                                       DEFAULT_ADDRESS + ":32100",
+                                                       "http://" + DEFAULT_ADDRESS + ":32100/some/path1",
+                                                       new ServerPropertiesImpl("/some/path1",
+                                                                                DEFAULT_ADDRESS_INTERNAL + ":4301",
+                                                                                "http://" + DEFAULT_ADDRESS_INTERNAL + ":4301/some/path1")));
+        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
+                                                       null,
+                                                       DEFAULT_ADDRESS + ":32103",
+                                                       null,
+                                                       new ServerPropertiesImpl("some/path4",
+                                                                                DEFAULT_ADDRESS_INTERNAL + ":4305",
+                                                                                null)));
+
+        //when
+        final Map<String, ServerImpl> servers = runtimeInfo.getServers();
+
+        //then
+        assertEquals(servers, expectedServers, "Expected servers to use internal container address and ports");
+    }
+
+    @Test
+    public void shouldUseEphemeralPortsWhenNotUsingInternalAddresses() throws Exception {
+        //given
+        when(networkSettings.getIpAddress()).thenReturn(DEFAULT_ADDRESS_INTERNAL);
+        when(networkSettings.getGateway()).thenReturn(DEFAULT_ADDRESS);
+
+        Map<String, List<PortBinding>> ports = new HashMap<>();
+        when(networkSettings.getPorts()).thenReturn(ports);
+        ports.put("4301/tcp", Collections.singletonList(new PortBinding().withHostIp(DEFAULT_ADDRESS)
+                                                                .withHostPort("32100")));
+        ports.put("4305/udp", Collections.singletonList(new PortBinding().withHostIp(DEFAULT_ADDRESS)
+                                                                .withHostPort("32103")));
+        Set<ServerConf> commonSystemServersConfigs = new HashSet<>();
+        commonSystemServersConfigs.add(new ServerConfImpl("sysServer1-tcp", "4301/tcp", "http", "/some/path1"));
+        Set<ServerConf> devSystemServersConfigs = new HashSet<>();
+        devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
+        when(machineConfig.isDev()).thenReturn(true);
+
+        HostPortEvaluationStrategyProvider providerWithoutInternal = new HostPortEvaluationStrategyProvider() {
+
+            @Override
+            public HostPortEvaluationStrategy getStrategy(ContainerInfo info, Map<String, ServerConfImpl> serverConf) {
+                return new DefaultHostPortEvaluationStrategy(info, serverConf, null, null, false);
+            }
+        };
+        runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
+                                                    machineConfig,
+                                                    providerWithoutInternal,
+                                                    devSystemServersConfigs,
+                                                    commonSystemServersConfigs);
+
+        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
+        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
+                                                       "http",
+                                                       DEFAULT_ADDRESS + ":32100",
+                                                       "http://" + DEFAULT_ADDRESS + ":32100/some/path1",
+                                                       new ServerPropertiesImpl("/some/path1",
+                                                                                DEFAULT_ADDRESS + ":32100",
+                                                                                "http://" + DEFAULT_ADDRESS + ":32100/some/path1")));
+        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
+                                                       null,
+                                                       DEFAULT_ADDRESS + ":32103",
+                                                       null,
+                                                       new ServerPropertiesImpl("some/path4",
+                                                                                DEFAULT_ADDRESS + ":32103",
+                                                                                null)));
+
+        //when
+        final Map<String, ServerImpl> servers = runtimeInfo.getServers();
+
+        //then
+        assertEquals(servers, expectedServers, "Expected servers to not use internal container address and ports");
+    }
+
+    @Test
+    public void shouldStillUseExternalAddressWithInternalAddress() throws Exception {
+        //given
+        when(networkSettings.getIpAddress()).thenReturn(DEFAULT_ADDRESS_INTERNAL);
+        when(networkSettings.getGateway()).thenReturn(DEFAULT_ADDRESS);
+
+        Map<String, List<PortBinding>> ports = new HashMap<>();
+        when(networkSettings.getPorts()).thenReturn(ports);
+        ports.put("4301/tcp", Collections.singletonList(new PortBinding().withHostIp(DEFAULT_ADDRESS)
+                                                                .withHostPort("32100")));
+        ports.put("4305/udp", Collections.singletonList(new PortBinding().withHostIp(DEFAULT_ADDRESS)
+                                                                .withHostPort("32103")));
+        Set<ServerConf> commonSystemServersConfigs = new HashSet<>();
+        commonSystemServersConfigs.add(new ServerConfImpl("sysServer1-tcp", "4301/tcp", "http", "/some/path1"));
+        Set<ServerConf> devSystemServersConfigs = new HashSet<>();
+        devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
+        when(machineConfig.isDev()).thenReturn(true);
+
+        HostPortEvaluationStrategyProvider providerWithoutInternal = new HostPortEvaluationStrategyProvider() {
+
+            @Override
+            public HostPortEvaluationStrategy getStrategy(ContainerInfo info, Map<String, ServerConfImpl> serverConf) {
+                return new DefaultHostPortEvaluationStrategy(info, serverConf, null, CONTAINER_HOST_EXTERNAL, true);
+            }
+        };
+        runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
+                                                    machineConfig,
+                                                    providerWithoutInternal,
+                                                    devSystemServersConfigs,
+                                                    commonSystemServersConfigs);
+
+        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
+        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
+                                                       "http",
+                                                       CONTAINER_HOST_EXTERNAL + ":32100",
+                                                       "http://" + CONTAINER_HOST_EXTERNAL + ":32100/some/path1",
+                                                       new ServerPropertiesImpl("/some/path1",
+                                                                                DEFAULT_ADDRESS_INTERNAL + ":4301",
+                                                                                "http://" + DEFAULT_ADDRESS_INTERNAL + ":4301/some/path1")));
+        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
+                                                       null,
+                                                       CONTAINER_HOST_EXTERNAL+ ":32103",
+                                                       null,
+                                                       new ServerPropertiesImpl("some/path4",
+                                                                                DEFAULT_ADDRESS_INTERNAL + ":4305",
+                                                                                null)));
+
+        //when
+        final Map<String, ServerImpl> servers = runtimeInfo.getServers();
+
+        //then
+        assertEquals(servers, expectedServers, "Expected servers to not use distinct external address when use internal flag was true");
     }
 }
