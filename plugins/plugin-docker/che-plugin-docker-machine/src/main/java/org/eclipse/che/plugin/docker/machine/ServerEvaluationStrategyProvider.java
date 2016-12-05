@@ -18,8 +18,21 @@ import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
 
 import com.google.inject.assistedinject.Assisted;
 
+/**
+ * Provides {@code ServerEvaluationStrategies}. Intended to be injected into {@link DockerInstanceRuntimeInfo}
+ * instances to aid in {@link DockerInstanceRuntimeInfo#getServers()}
+ * @author Angel Misevski <amisevsk@redhat.com>
+ * @see ServerEvaluationStrategy
+ */
 public interface ServerEvaluationStrategyProvider {
 
-    public ServerEvaluationStrategy getStrategy(@Assisted ContainerInfo info,
-                                                  @Assisted Map<String, ServerConfImpl> serverConf);
+    /**
+     * Creates {@link ServerEvaluationStrategy} via assisted injection.
+     * @param containerInfo the {@link ContainerInfo} associated with the container
+     * @param serverConf additional server data that is not included in containerInfo. Values
+     *        override duplicate values in containerInfo
+     * @return {@link ServerEvaluationStrategy}
+     */
+    public ServerEvaluationStrategy getStrategy(@Assisted ContainerInfo containerInfo,
+                                                @Assisted Map<String, ServerConfImpl> serverConf);
 }
