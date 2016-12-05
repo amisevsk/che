@@ -7,6 +7,7 @@
  *
  * Contributors:
  *   Codenvy, S.A. - initial API and implementation
+ *   Red Hat Inc.  - refactor getServers() method
  *******************************************************************************/
 package org.eclipse.che.plugin.docker.machine;
 
