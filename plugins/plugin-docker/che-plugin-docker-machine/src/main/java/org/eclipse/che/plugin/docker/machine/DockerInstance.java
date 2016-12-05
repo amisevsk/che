@@ -145,8 +145,6 @@ public class DockerInstance extends AbstractInstance {
             try {
                 final ContainerInfo containerInfo = docker.inspectContainer(container);
                 machineRuntime = new MachineRuntimeInfoImpl(dockerMachineFactory.createMetadata(containerInfo,
-                                                                                                null,
-                                                                                                node.getHost(),
                                                                                                 getConfig()));
             } catch (IOException e) {
                 LOG.error(e.getLocalizedMessage(), e);

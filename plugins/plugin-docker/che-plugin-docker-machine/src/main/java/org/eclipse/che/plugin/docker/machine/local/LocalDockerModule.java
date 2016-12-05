@@ -19,9 +19,11 @@ import com.google.inject.name.Names;
 import org.eclipse.che.api.environment.server.MachineService;
 import org.eclipse.che.api.machine.server.spi.Instance;
 import org.eclipse.che.api.machine.server.spi.InstanceProcess;
+import org.eclipse.che.plugin.docker.machine.DefaultServerEvaluationStrategy;
 import org.eclipse.che.plugin.docker.machine.DockerInstance;
 import org.eclipse.che.plugin.docker.machine.DockerInstanceRuntimeInfo;
 import org.eclipse.che.plugin.docker.machine.DockerProcess;
+import org.eclipse.che.plugin.docker.machine.ServerEvaluationStrategy;
 import org.eclipse.che.plugin.docker.machine.node.DockerNode;
 
 import java.util.Set;
@@ -44,10 +46,12 @@ public class LocalDockerModule extends AbstractModule {
                         .implement(Instance.class, DockerInstance.class)
                         .implement(InstanceProcess.class, DockerProcess.class)
                         .implement(DockerNode.class, LocalDockerNode.class)
-                        .implement(DockerInstanceRuntimeInfo.class,
-                                   org.eclipse.che.plugin.docker.machine.local.LocalDockerInstanceRuntimeInfo.class)
+                        .implement(DockerInstanceRuntimeInfo.class, DockerInstanceRuntimeInfo.class)
                         .build(org.eclipse.che.plugin.docker.machine.DockerMachineFactory.class));
 
+        install(new FactoryModuleBuilder()
+                        .implement(ServerEvaluationStrategy.class, DefaultServerEvaluationStrategy.class)
+                        .build(org.eclipse.che.plugin.docker.machine.ServerEvaluationStrategyProvider.class));
 
         bind(org.eclipse.che.plugin.docker.machine.node.WorkspaceFolderPathProvider.class)
                 .to(org.eclipse.che.plugin.docker.machine.local.node.provider.LocalWorkspaceFolderPathProvider.class);
