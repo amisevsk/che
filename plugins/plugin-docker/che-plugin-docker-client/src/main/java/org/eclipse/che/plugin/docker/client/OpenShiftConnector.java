@@ -44,6 +44,7 @@ import javax.inject.Singleton;
 import java.io.IOException;
 import java.util.*;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -60,6 +61,7 @@ public class OpenShiftConnector {
     private static final String OPENSHIFT_API_VERSION = "v1";
     private static final String CHE_WORKSPACE_ID_ENV_VAR = "CHE_WORKSPACE_ID";
     private static final String CHE_OPENSHIFT_RESOURCES_PREFIX = "che-ws-";
+    private static final String CHE_SERVER_LABEL_PREFIX = "che:server";
 
     private static final String OPENSHIFT_SERVICE_TYPE_NODE_PORT = "NodePort";
     public static final String DOCKER_PROTOCOL_PORT_DELIMITER = "/";
@@ -118,7 +120,9 @@ public class OpenShiftConnector {
         String[] volumes = createContainerParams.getContainerConfig().getHostConfig().getBinds();
 
         IProject cheProject = getCheProject();
-        createOpenShiftService(cheProject, workspaceID, exposedPorts);
+
+        Map<String, String> additionalLabels = createContainerParams.getContainerConfig().getLabels();
+        createOpenShiftService(cheProject, workspaceID, exposedPorts, additionalLabels);
         String deploymentConfigName = createOpenShiftDeploymentConfig(cheProject,
                                                                       workspaceID,
                                                                       imageName,
@@ -147,10 +151,29 @@ public class OpenShiftConnector {
         if (info == null) {
             return null;
         }
+
+        IPod pod = getChePodByContainerId(info.getId());
+        String deploymentConfig = pod.getLabels().get("deploymentConfig");
+        IService svc = getCheServiceBySelector("deploymentConfig", deploymentConfig);
+        Map<String, String> annotations = unsanitizeLabelMap(svc.getAnnotations());
+        Map<String, String> containerLabels = info.getConfig().getLabels();
+
+        Map<String, String> labels = Stream.concat(annotations.entrySet().stream(), containerLabels.entrySet().stream())
+                                           .filter(e -> e.getKey().startsWith(CHE_SERVER_LABEL_PREFIX))
+                                           .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
+
+        info.getConfig().setLabels(labels);
+
+        LOG.info("Container labels:");
+        for (String key: info.getConfig().getLabels().keySet()) {
+            String value = info.getConfig().getLabels().get(key);
+
+            LOG.info("- " + key + "=" + value);
+        }
         // Ignore portMapping for now: info.getNetworkSettings().setPortMapping();
         // replacePortMapping(info)
         replaceNetworkSettings(info);
-        replaceLabels(info);
+//        replaceLabels(info);
 
         return info;
     }
@@ -258,7 +281,10 @@ public class OpenShiftConnector {
         return cheProject;
     }
 
-    private void createOpenShiftService(IProject cheProject, String workspaceID, Set<String> exposedPorts) {
+    private void createOpenShiftService(IProject cheProject,
+                                        String workspaceID,
+                                        Set<String> exposedPorts,
+                                        Map<String, String> labels) {
         IService service = openShiftFactory.create(OPENSHIFT_API_VERSION, ResourceKind.SERVICE);
         ((Service) service).setNamespace(cheProject.getNamespace());
         ((Service) service).setName(CHE_OPENSHIFT_RESOURCES_PREFIX + workspaceID);
@@ -268,8 +294,45 @@ public class OpenShiftConnector {
         service.setPorts(openShiftPorts);
 
         service.setSelector("deploymentConfig", (CHE_OPENSHIFT_RESOURCES_PREFIX + workspaceID));
+
+        Map<String,String> sanitizedLabels = sanitizeLabelMap(labels);
+        for (Map.Entry<String, String> entry : sanitizedLabels.entrySet()) {
+            if (entry.getValue() != null) {
+                service.setAnnotation(entry.getKey(), entry.getValue());
+            }
+        }
         openShiftClient.create(service);
         LOG.info(String.format("OpenShift service %s created", service.getName()));
+    }
+
+    // Kubernetes annotations must conform to DNS label spec (RFC 1123)
+    private Map<String, String> sanitizeLabelMap(Map<String, String> labels) {
+        Map<String, String> sanitizedMap = new HashMap<>();
+        for (Map.Entry<String, String> entry : labels.entrySet()) {
+            if (entry.getValue() == null)  continue;
+            if (entry.getKey().contains("-") || entry.getKey().contains(".")
+                    || entry.getValue().contains("-") || entry.getValue().contains(".")) {
+                LOG.info(String.format("Cannot convert label %s into valid DNS name", entry.toString()));
+                continue;
+            }
+            sanitizedMap.put(String.format("000%s000", entry.getKey().replaceAll(":", "-").replaceAll("/", ".")),
+                             String.format("000%s000", entry.getValue().replaceAll(":", "-").replaceAll("/", ".")));
+        }
+        return sanitizedMap;
+    }
+
+    private Map<String, String> unsanitizeLabelMap(Map<String, String> labels) {
+        Map<String, String> unsanitizedMap = new HashMap<>();
+        for (Map.Entry<String, String> entry: labels.entrySet()){
+            if (entry.getValue() == null) continue;
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if (!key.matches("000.*000") || !value.matches("000.*000")) continue;
+            key = key.substring(3, key.length() -3).replaceAll("-", ":").replaceAll("\\.", "/");
+            value = value.substring(3, value.length() - 3).replaceAll("-", ":").replaceAll("\\.", "/");
+            unsanitizedMap.put(key, value);
+        }
+        return unsanitizedMap;
     }
 
     private String createOpenShiftDeploymentConfig(IProject cheProject,
