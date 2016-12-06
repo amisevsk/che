@@ -79,11 +79,13 @@ public class DockerInstanceRuntimeInfo implements MachineRuntimeInfo {
 
     private final ContainerInfo               info;
     private final Map<String, ServerConfImpl> serversConf;
+    private final String                      internalHost;
     private final ServerEvaluationStrategyProvider provider;
 
     @Inject
     public DockerInstanceRuntimeInfo(@Assisted ContainerInfo containerInfo,
                                      @Assisted MachineConfig machineConfig,
+                                     @Assisted String internalHost,
                                      ServerEvaluationStrategyProvider provider,
                                      @Named("machine.docker.dev_machine.machine_servers") Set<ServerConf> devMachineSystemServers,
                                      @Named("machine.docker.machine_servers") Set<ServerConf> allMachinesSystemServers) {
@@ -99,6 +101,7 @@ public class DockerInstanceRuntimeInfo implements MachineRuntimeInfo {
                                                                srvConf.getPort() + "/tcp",
                                                     ServerConfImpl::new));
 
+        this.internalHost = internalHost;
         this.provider = provider;
     }
 
@@ -226,7 +229,7 @@ public class DockerInstanceRuntimeInfo implements MachineRuntimeInfo {
 
     @Override
     public Map<String, ServerImpl> getServers() {
-        ServerEvaluationStrategy strategy = provider.getStrategy(info, serversConf);
+        ServerEvaluationStrategy strategy = provider.getStrategy(info, serversConf, internalHost);
         Map<String, List<PortBinding>> ports;
         if (info.getNetworkSettings() != null && info.getNetworkSettings().getPorts() != null) {
             ports = info.getNetworkSettings().getPorts();

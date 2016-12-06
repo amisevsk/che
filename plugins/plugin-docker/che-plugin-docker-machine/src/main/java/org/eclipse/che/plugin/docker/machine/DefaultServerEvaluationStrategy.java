@@ -98,6 +98,7 @@ public class DefaultServerEvaluationStrategy implements ServerEvaluationStrategy
     @Inject
     public DefaultServerEvaluationStrategy(@Assisted ContainerInfo containerInfo,
                                            @Assisted Map<String, ServerConfImpl> serverConf,
+                                           @Assisted String internalHost,
                                            @Nullable @Named("che.docker.ip") String internalAddress,
                                            @Nullable @Named("che.docker.ip.external") String externalAddress,
                                            @Nullable @Named("che.docker.ip.use_internal_address") boolean useInternal) {
@@ -142,6 +143,15 @@ public class DefaultServerEvaluationStrategy implements ServerEvaluationStrategy
                                internalAddress != null ?
                                internalAddress :
                                dockerAddress;
+
+        // When running che-server outside of a docker container, IPAddress and Gateway are
+        // empty in containerInfo.
+        if (this.internalAddress == null || this.internalAddress.isEmpty()) {
+            this.internalAddress = internalHost;
+        }
+        if (this.externalAddress == null || this.externalAddress.isEmpty()) {
+            this.externalAddress = internalHost;
+        }
     }
 
     /**

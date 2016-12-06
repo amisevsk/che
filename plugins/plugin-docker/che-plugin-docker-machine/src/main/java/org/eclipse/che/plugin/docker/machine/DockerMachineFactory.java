@@ -83,5 +83,6 @@ public interface DockerMachineFactory {
      * @param machineConfig config of machine
      */
     DockerInstanceRuntimeInfo createMetadata(@Assisted ContainerInfo containerInfo,
-                                             @Assisted MachineConfig machineConfig);
+                                             @Assisted MachineConfig machineConfig,
+                                             @Assisted String        internalHost);
 }

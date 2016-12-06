@@ -34,5 +34,6 @@ public interface ServerEvaluationStrategyProvider {
      * @return {@link ServerEvaluationStrategy}
      */
     public ServerEvaluationStrategy getStrategy(@Assisted ContainerInfo containerInfo,
-                                                @Assisted Map<String, ServerConfImpl> serverConf);
+                                                @Assisted Map<String, ServerConfImpl> serverConf,
+                                                @Assisted String internalHost);
 }

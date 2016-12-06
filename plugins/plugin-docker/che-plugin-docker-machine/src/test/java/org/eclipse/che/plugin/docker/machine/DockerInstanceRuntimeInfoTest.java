@@ -47,6 +47,7 @@ public class DockerInstanceRuntimeInfoTest {
     private static final String CONTAINER_HOST_EXTERNAL  = "container-host-ext.com";
     private static final String DEFAULT_ADDRESS          = "192.168.1.1";
     private static final String DEFAULT_ADDRESS_INTERNAL = "172.17.0.1";
+    private static final String DEFAULT_HOSTNAME         = "localhost";
 
     @Mock
     private ContainerInfo   containerInfo;
@@ -63,8 +64,9 @@ public class DockerInstanceRuntimeInfoTest {
 
         @Override
         public ServerEvaluationStrategy getStrategy(ContainerInfo info,
-                                                      Map<String, ServerConfImpl> serverConf) {
-            return new DefaultServerEvaluationStrategy(info, serverConf, CONTAINER_HOST, null, false);
+                                                    Map<String, ServerConfImpl> serverConf,
+                                                    String internalHost) {
+            return new DefaultServerEvaluationStrategy(info, serverConf, internalHost, CONTAINER_HOST, null, false);
         }
     };
 
@@ -73,6 +75,7 @@ public class DockerInstanceRuntimeInfoTest {
 
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
+                                                    DEFAULT_HOSTNAME,
                                                     provider,
                                                     Collections.emptySet(),
                                                     Collections.emptySet());
@@ -214,6 +217,7 @@ public class DockerInstanceRuntimeInfoTest {
         serversConfigs.add(new ServerConfImpl(null, "8000/tcp", "tcp", "/path"));
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
+                                                    DEFAULT_HOSTNAME,
                                                     provider,
                                                     Collections.emptySet(),
                                                     Collections.emptySet());
@@ -269,6 +273,7 @@ public class DockerInstanceRuntimeInfoTest {
         serversConfigs.add(new ServerConfImpl("myserv1-tftp", "8080/udp", "tftp", "path"));
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
+                                                    DEFAULT_HOSTNAME,
                                                     provider,
                                                     Collections.emptySet(),
                                                     Collections.emptySet());
@@ -300,6 +305,7 @@ public class DockerInstanceRuntimeInfoTest {
         // given
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
+                                                    DEFAULT_HOSTNAME,
                                                     provider,
                                                     Collections.emptySet(),
                                                     Collections.emptySet());
@@ -366,6 +372,7 @@ public class DockerInstanceRuntimeInfoTest {
         // given
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
+                                                    DEFAULT_HOSTNAME,
                                                     provider,
                                                     Collections.emptySet(),
                                                     Collections.emptySet());
@@ -441,6 +448,7 @@ public class DockerInstanceRuntimeInfoTest {
         serversConfigs.add(new ServerConfImpl(null, "8080/udp", null, "some/path"));
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
+                                                    DEFAULT_HOSTNAME,
                                                     provider,
                                                     Collections.emptySet(),
                                                     Collections.emptySet());
@@ -495,6 +503,7 @@ public class DockerInstanceRuntimeInfoTest {
         when(machineConfig.isDev()).thenReturn(false);
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
+                                                    DEFAULT_HOSTNAME,
                                                     provider,
                                                     devSystemServersConfigs,
                                                     commonSystemServersConfigs);
@@ -555,6 +564,7 @@ public class DockerInstanceRuntimeInfoTest {
         when(machineConfig.isDev()).thenReturn(true);
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
+                                                    DEFAULT_HOSTNAME,
                                                     provider,
                                                     devSystemServersConfigs,
                                                     commonSystemServersConfigs);
@@ -611,6 +621,7 @@ public class DockerInstanceRuntimeInfoTest {
         when(machineConfig.isDev()).thenReturn(true);
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                            machineConfig,
+                                                           DEFAULT_HOSTNAME,
                                                            provider,
                                                            devSystemServersConfigs,
                                                            commonSystemServersConfigs);
@@ -656,13 +667,20 @@ public class DockerInstanceRuntimeInfoTest {
 
             @Override
             public ServerEvaluationStrategy getStrategy(ContainerInfo info,
-                                                          Map<String, ServerConfImpl> serverConf) {
-                return new DefaultServerEvaluationStrategy(info, serverConf, CONTAINER_HOST, CONTAINER_HOST_EXTERNAL, false);
+                                                        Map<String, ServerConfImpl> serverConf,
+                                                        String internalHost) {
+                return new DefaultServerEvaluationStrategy(info,
+                                                           serverConf,
+                                                           internalHost,
+                                                           CONTAINER_HOST,
+                                                           CONTAINER_HOST_EXTERNAL,
+                                                           false);
             }
         };
 
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
+                                                    DEFAULT_HOSTNAME,
                                                     providerWithExternalAddress,
                                                     devSystemServersConfigs,
                                                     commonSystemServersConfigs);
@@ -709,12 +727,15 @@ public class DockerInstanceRuntimeInfoTest {
         ServerEvaluationStrategyProvider providerWithInternal = new ServerEvaluationStrategyProvider() {
 
             @Override
-            public ServerEvaluationStrategy getStrategy(ContainerInfo info, Map<String, ServerConfImpl> serverConf) {
-                return new DefaultServerEvaluationStrategy(info, serverConf, null, null, true);
+            public ServerEvaluationStrategy getStrategy(ContainerInfo info,
+                                                        Map<String, ServerConfImpl> serverConf,
+                                                        String internalHostname) {
+                return new DefaultServerEvaluationStrategy(info, serverConf, internalHostname, null, null, true);
             }
         };
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
+                                                    DEFAULT_HOSTNAME,
                                                     providerWithInternal,
                                                     devSystemServersConfigs,
                                                     commonSystemServersConfigs);
@@ -763,12 +784,15 @@ public class DockerInstanceRuntimeInfoTest {
         ServerEvaluationStrategyProvider providerWithoutInternal = new ServerEvaluationStrategyProvider() {
 
             @Override
-            public ServerEvaluationStrategy getStrategy(ContainerInfo info, Map<String, ServerConfImpl> serverConf) {
-                return new DefaultServerEvaluationStrategy(info, serverConf, null, null, false);
+            public ServerEvaluationStrategy getStrategy(ContainerInfo info,
+                                                        Map<String, ServerConfImpl> serverConf,
+                                                        String internalHostname) {
+                return new DefaultServerEvaluationStrategy(info, serverConf, internalHostname, null, null, false);
             }
         };
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
+                                                    DEFAULT_HOSTNAME,
                                                     providerWithoutInternal,
                                                     devSystemServersConfigs,
                                                     commonSystemServersConfigs);
@@ -814,16 +838,24 @@ public class DockerInstanceRuntimeInfoTest {
         devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
         when(machineConfig.isDev()).thenReturn(true);
 
-        ServerEvaluationStrategyProvider providerWithoutInternal = new ServerEvaluationStrategyProvider() {
+        ServerEvaluationStrategyProvider providerWithLimitedContainerInfo = new ServerEvaluationStrategyProvider() {
 
             @Override
-            public ServerEvaluationStrategy getStrategy(ContainerInfo info, Map<String, ServerConfImpl> serverConf) {
-                return new DefaultServerEvaluationStrategy(info, serverConf, null, CONTAINER_HOST_EXTERNAL, true);
+            public ServerEvaluationStrategy getStrategy(ContainerInfo info,
+                                                        Map<String, ServerConfImpl> serverConf,
+                                                        String internalHostname) {
+                return new DefaultServerEvaluationStrategy(info,
+                                                           serverConf,
+                                                           DEFAULT_HOSTNAME,
+                                                           null,
+                                                           CONTAINER_HOST_EXTERNAL,
+                                                           true);
             }
         };
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
-                                                    providerWithoutInternal,
+                                                    DEFAULT_HOSTNAME,
+                                                    providerWithLimitedContainerInfo,
                                                     devSystemServersConfigs,
                                                     commonSystemServersConfigs);
 
@@ -848,5 +880,67 @@ public class DockerInstanceRuntimeInfoTest {
 
         //then
         assertEquals(servers, expectedServers, "Expected servers to not use distinct external address when use internal flag was true");
+    }
+
+    @Test
+    public void shouldUseInternalHostnameWhenContainerInfoIsUnavailable() throws Exception {
+        //given
+        when(networkSettings.getIpAddress()).thenReturn("");
+        when(networkSettings.getGateway()).thenReturn("");
+
+        Map<String, List<PortBinding>> ports = new HashMap<>();
+        when(networkSettings.getPorts()).thenReturn(ports);
+        ports.put("4301/tcp", Collections.singletonList(new PortBinding().withHostIp(DEFAULT_HOSTNAME)
+                                                                .withHostPort("32100")));
+        ports.put("4305/udp", Collections.singletonList(new PortBinding().withHostIp(DEFAULT_HOSTNAME)
+                                                                .withHostPort("32103")));
+        Set<ServerConf> commonSystemServersConfigs = new HashSet<>();
+        commonSystemServersConfigs.add(new ServerConfImpl("sysServer1-tcp", "4301/tcp", "http", "/some/path1"));
+        Set<ServerConf> devSystemServersConfigs = new HashSet<>();
+        devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
+        when(machineConfig.isDev()).thenReturn(true);
+
+        ServerEvaluationStrategyProvider providerWithoutInternal = new ServerEvaluationStrategyProvider() {
+
+            @Override
+            public ServerEvaluationStrategy getStrategy(ContainerInfo info,
+                                                        Map<String, ServerConfImpl> serverConf,
+                                                        String internalHostname) {
+                return new DefaultServerEvaluationStrategy(info,
+                                                           serverConf,
+                                                           internalHostname,
+                                                           null,
+                                                           null,
+                                                           true);
+            }
+        };
+        runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
+                                                    machineConfig,
+                                                    DEFAULT_HOSTNAME,
+                                                    providerWithoutInternal,
+                                                    devSystemServersConfigs,
+                                                    commonSystemServersConfigs);
+
+        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
+        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
+                                                       "http",
+                                                       DEFAULT_HOSTNAME + ":32100",
+                                                       "http://" + DEFAULT_HOSTNAME + ":32100/some/path1",
+                                                       new ServerPropertiesImpl("/some/path1",
+                                                                                DEFAULT_HOSTNAME + ":32100",
+                                                                                "http://" + DEFAULT_HOSTNAME + ":32100/some/path1")));
+        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
+                                                       null,
+                                                       DEFAULT_HOSTNAME + ":32103",
+                                                       null,
+                                                       new ServerPropertiesImpl("some/path4",
+                                                                                DEFAULT_HOSTNAME + ":32103",
+                                                                                null)));
+
+        //when
+        final Map<String, ServerImpl> servers = runtimeInfo.getServers();
+
+        //then
+        assertEquals(servers, expectedServers, "Expected servers to fall back to provided hostname when ContainerInfo is not available");
     }
 }
