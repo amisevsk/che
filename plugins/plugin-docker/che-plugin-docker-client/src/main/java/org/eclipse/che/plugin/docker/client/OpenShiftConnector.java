@@ -44,6 +44,7 @@ import javax.inject.Singleton;
 import java.io.IOException;
 import java.util.*;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -61,7 +62,13 @@ public class OpenShiftConnector {
     private static final String OPENSHIFT_API_VERSION = "v1";
     private static final String CHE_WORKSPACE_ID_ENV_VAR = "CHE_WORKSPACE_ID";
     private static final String CHE_OPENSHIFT_RESOURCES_PREFIX = "che-ws-";
+
+    /** Prefix used for che server labels */
     private static final String CHE_SERVER_LABEL_PREFIX = "che:server";
+    /** Padding to use when converting server label to DNS name */
+    private static final String CHE_SERVER_LABEL_PADDING = "0%s0";
+    /** Regex to use when matching converted labels -- should match {@link CHE_SERVER_LABEL_PADDING} */
+    private static final Pattern CHE_SERVER_LABEL_KEY    = Pattern.compile("^0(.*)0$");
 
     private static final String OPENSHIFT_SERVICE_TYPE_NODE_PORT = "NodePort";
     public static final String DOCKER_PROTOCOL_PORT_DELIMITER = "/";
@@ -155,7 +162,7 @@ public class OpenShiftConnector {
         IPod pod = getChePodByContainerId(info.getId());
         String deploymentConfig = pod.getLabels().get("deploymentConfig");
         IService svc = getCheServiceBySelector("deploymentConfig", deploymentConfig);
-        Map<String, String> annotations = unsanitizeLabelMap(svc.getAnnotations());
+        Map<String, String> annotations = convertDnsNamesToLabels(svc.getAnnotations());
         Map<String, String> containerLabels = info.getConfig().getLabels();
 
         Map<String, String> labels = Stream.concat(annotations.entrySet().stream(), containerLabels.entrySet().stream())
@@ -173,7 +180,6 @@ public class OpenShiftConnector {
         // Ignore portMapping for now: info.getNetworkSettings().setPortMapping();
         // replacePortMapping(info)
         replaceNetworkSettings(info);
-//        replaceLabels(info);
 
         return info;
     }
@@ -295,7 +301,7 @@ public class OpenShiftConnector {
 
         service.setSelector("deploymentConfig", (CHE_OPENSHIFT_RESOURCES_PREFIX + workspaceID));
 
-        Map<String,String> sanitizedLabels = sanitizeLabelMap(labels);
+        Map<String,String> sanitizedLabels = convertLabelsToDnsNames(labels);
         for (Map.Entry<String, String> entry : sanitizedLabels.entrySet()) {
             if (entry.getValue() != null) {
                 service.setAnnotation(entry.getKey(), entry.getValue());
@@ -303,36 +309,6 @@ public class OpenShiftConnector {
         }
         openShiftClient.create(service);
         LOG.info(String.format("OpenShift service %s created", service.getName()));
-    }
-
-    // Kubernetes annotations must conform to DNS label spec (RFC 1123)
-    private Map<String, String> sanitizeLabelMap(Map<String, String> labels) {
-        Map<String, String> sanitizedMap = new HashMap<>();
-        for (Map.Entry<String, String> entry : labels.entrySet()) {
-            if (entry.getValue() == null)  continue;
-            if (entry.getKey().contains("-") || entry.getKey().contains(".")
-                    || entry.getValue().contains("-") || entry.getValue().contains(".")) {
-                LOG.info(String.format("Cannot convert label %s into valid DNS name", entry.toString()));
-                continue;
-            }
-            sanitizedMap.put(String.format("000%s000", entry.getKey().replaceAll(":", "-").replaceAll("/", ".")),
-                             String.format("000%s000", entry.getValue().replaceAll(":", "-").replaceAll("/", ".")));
-        }
-        return sanitizedMap;
-    }
-
-    private Map<String, String> unsanitizeLabelMap(Map<String, String> labels) {
-        Map<String, String> unsanitizedMap = new HashMap<>();
-        for (Map.Entry<String, String> entry: labels.entrySet()){
-            if (entry.getValue() == null) continue;
-            String key = entry.getKey();
-            String value = entry.getValue();
-            if (!key.matches("000.*000") || !value.matches("000.*000")) continue;
-            key = key.substring(3, key.length() -3).replaceAll("-", ":").replaceAll("\\.", "/");
-            value = value.substring(3, value.length() - 3).replaceAll("-", ":").replaceAll("\\.", "/");
-            unsanitizedMap.put(key, value);
-        }
-        return unsanitizedMap;
     }
 
     private String createOpenShiftDeploymentConfig(IProject cheProject,
@@ -507,34 +483,6 @@ public class OpenShiftConnector {
         return env;
     }
 
-    private void replaceLabels(ContainerInfo info) {
-        if (info.getConfig() == null) {
-            return;
-        }
-
-        Map<String,String> configLabels = new HashMap<>();
-        configLabels.put("che:server:22/tcp:ref", "ssh");
-        configLabels.put("che:server:4401/tcp:path", "/api");
-        configLabels.put("che:server:4401/tcp:protocol", "http");
-        configLabels.put("che:server:4401/tcp:ref", "wsagent");
-        configLabels.put("che:server:4411/tcp:protocol", "http");
-        configLabels.put("che:server:4411/tcp:ref", "terminal");
-        configLabels.put("che:server:8000:protocol", "http");
-        configLabels.put("che:server:8000:ref", "tomcat8-debug");
-        configLabels.put("che:server:8080:protocol", "http");
-        configLabels.put("che:server:8080:ref", "tomcat8");
-        configLabels.put("che:server:9876:protocol", "http");
-        configLabels.put("che:server:9876:ref", "codeserver");
-        info.getConfig().setLabels(configLabels);
-
-        LOG.info("Container labels:");
-        for (String key: info.getConfig().getLabels().keySet()) {
-            String value = info.getConfig().getLabels().get(key);
-
-            LOG.info("- " + key + "=" + value);
-        }
-    }
-
     private void replaceNetworkSettings(ContainerInfo info) throws IOException {
 
         if (info.getNetworkSettings() == null) {
@@ -576,5 +524,67 @@ public class OpenShiftConnector {
                     Collections.singletonList(new PortBinding().withHostIp(CHE_DEFAULT_EXTERNAL_ADDRESS).withHostPort(nodePort)));
         }
         return networkSettingsPorts;
+    }
+
+    /**
+     * Converts a map of labels to match RFC 1123 (valid DNS name). Names are limited
+     * to alphanumeric characters, {@code '.'} and {@code '-'}, and must start with an
+     * alphanumeric character.
+     * @param labels Map of labels to convert
+     * @return Map of labels converted to DNS Names
+     * @see OpenShiftConnector#convertDnsNamesToLabels(Map)
+     */
+    private Map<String, String> convertLabelsToDnsNames(Map<String, String> labels) {
+        Map<String, String> names = new HashMap<>();
+        for (Map.Entry<String, String> entry : labels.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+
+            if (value == null) {
+                continue;
+            }
+            // TODO: Check for special characters in key & value
+            // Convert keys: e.g. "che:server:4401/tcp:ref" -> "che.server.4401-tcp.ref"
+            key = key.replaceAll(":", ".").replaceAll("/", "-");
+            // Convert values: e.g. "/api" -> ".api" -- note values may include '-'
+            value = value.replaceAll("/", ".");
+
+            // Add padding since DNS names must start and end with alphanumeric characters
+            names.put(String.format(CHE_SERVER_LABEL_PADDING, key),
+                      String.format(CHE_SERVER_LABEL_PADDING, value));
+        }
+        return names;
+    }
+
+    /**
+     * Undoes the label to DNS name conversion done by {@link OpenShiftConnector#convertLabelsToDnsNames(Map)}
+     *
+     * @param labels Map of DNS names
+     * @return Map of unconverted labels
+     * @see OpenShiftConnector#convertLabelsToDnsNames(Map)
+     */
+    private Map<String, String> convertDnsNamesToLabels(Map<String, String> names) {
+        Map<String, String> labels = new HashMap<>();
+        for (Map.Entry<String, String> entry: names.entrySet()){
+            String key = entry.getKey();
+            String value = entry.getValue();
+
+            // Remove padding
+            Matcher keyMatcher   = CHE_SERVER_LABEL_KEY.matcher(key);
+            Matcher valueMatcher = CHE_SERVER_LABEL_KEY.matcher(value);
+            if (!keyMatcher.matches() || !valueMatcher.matches()) {
+                continue;
+            }
+            key = keyMatcher.group(1);
+            value = valueMatcher.group(1);
+
+            // Convert key: e.g. "che.server.4401-tcp.ref" -> "che:server:4401/tcp:ref"
+            key = key.replaceAll("\\.", ":").replaceAll("-", "/");
+            // Convert value: e.g. Convert values: e.g. ".api" -> "/api"
+            value = value.replaceAll("\\.", "/");
+
+            labels.put(key, value);
+        }
+        return labels;
     }
 }
