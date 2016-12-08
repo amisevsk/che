@@ -64,11 +64,11 @@ public class OpenShiftConnector {
     private static final String CHE_OPENSHIFT_RESOURCES_PREFIX = "che-ws-";
 
     /** Prefix used for che server labels */
-    private static final String CHE_SERVER_LABEL_PREFIX  = "che:server";
+    protected static final String CHE_SERVER_LABEL_PREFIX  = "che:server";
     /** Padding to use when converting server label to DNS name */
-    private static final String CHE_SERVER_LABEL_PADDING = "0%s0";
+    protected static final String CHE_SERVER_LABEL_PADDING = "0%s0";
     /** Regex to use when matching converted labels -- should match {@link CHE_SERVER_LABEL_PADDING} */
-    private static final Pattern CHE_SERVER_LABEL_KEY    = Pattern.compile("^0(.*)0$");
+    protected static final Pattern CHE_SERVER_LABEL_KEY    = Pattern.compile("^0(.*)0$");
 
     private static final String OPENSHIFT_SERVICE_TYPE_NODE_PORT = "NodePort";
     public static final String DOCKER_PROTOCOL_PORT_DELIMITER = "/";
@@ -162,7 +162,7 @@ public class OpenShiftConnector {
         IPod pod = getChePodByContainerId(info.getId());
         String deploymentConfig = pod.getLabels().get("deploymentConfig");
         IService svc = getCheServiceBySelector("deploymentConfig", deploymentConfig);
-        Map<String, String> annotations = convertDnsNamesToLabels(svc.getAnnotations());
+        Map<String, String> annotations = convertKubernetesNamesToLabels(svc.getAnnotations());
         Map<String, String> containerLabels = info.getConfig().getLabels();
 
         Map<String, String> labels = Stream.concat(annotations.entrySet().stream(), containerLabels.entrySet().stream())
@@ -299,7 +299,7 @@ public class OpenShiftConnector {
 
         service.setSelector("deploymentConfig", (CHE_OPENSHIFT_RESOURCES_PREFIX + workspaceID));
 
-        Map<String,String> sanitizedLabels = convertLabelsToDnsNames(additionalLabels);
+        Map<String,String> sanitizedLabels = convertLabelsToKubernetesNames(additionalLabels);
         for (Map.Entry<String, String> entry : sanitizedLabels.entrySet()) {
             if (entry.getValue() != null) {
                 service.setAnnotation(entry.getKey(), entry.getValue());
@@ -525,18 +525,20 @@ public class OpenShiftConnector {
     }
 
     /**
-     * Converts a map of labels to match RFC 1123 (valid DNS name). Names are limited
-     * to alphanumeric characters, {@code '.'} and {@code '-'}, and must start with an
-     * alphanumeric character.
+     * Converts a map of labels to match Kubernetes label requirements. Names are limited
+     * to alphanumeric characters, {@code '.'}, {@code '_'} and {@code '-'}, and must start and end
+     * with an alphanumeric character, i.e. they must match the regex
+     * {@code ([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]}
      * <p>
-     * Note that entries should not contain {@code '.'} and {@code '-'} before conversion;
+     * Note that entry keys should begin with {@link OpenShiftConnector#CHE_SERVER_LABEL_PREFIX} and
+     * entries should not contain {@code '.'} or {@code '_'} before conversion;
      * otherwise label will not be converted and included in output.
      *
      * @param labels Map of labels to convert
      * @return Map of labels converted to DNS Names
-     * @see OpenShiftConnector#convertDnsNamesToLabels(Map)
+     * @see OpenShiftConnector#convertKubernetesNamesToLabels(Map)
      */
-    private Map<String, String> convertLabelsToDnsNames(Map<String, String> labels) {
+    protected Map<String, String> convertLabelsToKubernetesNames(Map<String, String> labels) {
         Map<String, String> names = new HashMap<>();
         for (Map.Entry<String, String> entry : labels.entrySet()) {
             String key = entry.getKey();
@@ -549,15 +551,15 @@ public class OpenShiftConnector {
             if (!key.startsWith(CHE_OPENSHIFT_RESOURCES_PREFIX)) {
                 LOG.warn("Expected CreateContainerParams label key " + entry.getKey() +
                          " to start with " + CHE_SERVER_LABEL_PREFIX);
-            } else if (key.contains(".") || key.contains("-") || value.contains(".")) {
+            } else if (key.contains(".") || key.contains("_") || value.contains("_")) {
                 LOG.error(String.format("Cannot convert label %s to DNS Name: contains '-' or '.'", entry.toString()));
                 continue;
             }
 
             // Convert keys: e.g. "che:server:4401/tcp:ref" -> "che.server.4401-tcp.ref"
-            key = key.replaceAll(":", ".").replaceAll("/", "-");
+            key = key.replaceAll(":", ".").replaceAll("/", "_");
             // Convert values: e.g. "/api" -> ".api" -- note values may include '-'
-            value = value.replaceAll("/", ".");
+            value = value.replaceAll("/", "_");
 
             // Add padding since DNS names must start and end with alphanumeric characters
             names.put(String.format(CHE_SERVER_LABEL_PADDING, key),
@@ -567,13 +569,13 @@ public class OpenShiftConnector {
     }
 
     /**
-     * Undoes the label to DNS name conversion done by {@link OpenShiftConnector#convertLabelsToDnsNames(Map)}
+     * Undoes the label conversion done by {@link OpenShiftConnector#convertLabelsToKubernetesNames(Map)}
      *
      * @param labels Map of DNS names
      * @return Map of unconverted labels
-     * @see OpenShiftConnector#convertLabelsToDnsNames(Map)
+     * @see OpenShiftConnector#convertLabelsToKubernetesNames(Map)
      */
-    private Map<String, String> convertDnsNamesToLabels(Map<String, String> names) {
+    protected Map<String, String> convertKubernetesNamesToLabels(Map<String, String> names) {
         Map<String, String> labels = new HashMap<>();
         for (Map.Entry<String, String> entry: names.entrySet()){
             String key = entry.getKey();
@@ -588,10 +590,10 @@ public class OpenShiftConnector {
             key = keyMatcher.group(1);
             value = valueMatcher.group(1);
 
-            // Convert key: e.g. "che.server.4401-tcp.ref" -> "che:server:4401/tcp:ref"
-            key = key.replaceAll("\\.", ":").replaceAll("-", "/");
-            // Convert value: e.g. Convert values: e.g. ".api" -> "/api"
-            value = value.replaceAll("\\.", "/");
+            // Convert key: e.g. "che.server.4401_tcp.ref" -> "che:server:4401/tcp:ref"
+            key = key.replaceAll("\\.", ":").replaceAll("_", "/");
+            // Convert value: e.g. Convert values: e.g. "_api" -> "/api"
+            value = value.replaceAll("_", "/");
 
             labels.put(key, value);
         }
