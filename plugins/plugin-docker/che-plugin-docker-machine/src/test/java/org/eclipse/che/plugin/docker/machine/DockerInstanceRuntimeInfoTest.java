@@ -60,15 +60,8 @@ public class DockerInstanceRuntimeInfoTest {
 
     private DockerInstanceRuntimeInfo runtimeInfo;
 
-    private static ServerEvaluationStrategyProvider provider = new ServerEvaluationStrategyProvider() {
-
-        @Override
-        public ServerEvaluationStrategy getStrategy(ContainerInfo info,
-                                                    Map<String, ServerConfImpl> serverConf,
-                                                    String internalHost) {
-            return new DefaultServerEvaluationStrategy(info, serverConf, internalHost, CONTAINER_HOST, null, false);
-        }
-    };
+    @Mock
+    private static ServerEvaluationStrategyProvider provider;
 
     @BeforeMethod
     public void setUp() {
@@ -84,6 +77,8 @@ public class DockerInstanceRuntimeInfoTest {
         when(containerInfo.getNetworkSettings()).thenReturn(networkSettings);
         when(machineConfig.getServers()).thenReturn(Collections.emptyList());
         when(containerConfig.getLabels()).thenReturn(Collections.emptyMap());
+
+        when(provider.get()).thenReturn(new DefaultServerEvaluationStrategy(null, null));
     }
 
     @Test
@@ -663,25 +658,12 @@ public class DockerInstanceRuntimeInfoTest {
         devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
         when(machineConfig.isDev()).thenReturn(true);
 
-        ServerEvaluationStrategyProvider providerWithExternalAddress = new ServerEvaluationStrategyProvider() {
-
-            @Override
-            public ServerEvaluationStrategy getStrategy(ContainerInfo info,
-                                                        Map<String, ServerConfImpl> serverConf,
-                                                        String internalHost) {
-                return new DefaultServerEvaluationStrategy(info,
-                                                           serverConf,
-                                                           internalHost,
-                                                           CONTAINER_HOST,
-                                                           CONTAINER_HOST_EXTERNAL,
-                                                           false);
-            }
-        };
+        when(provider.get()).thenReturn(new DefaultServerEvaluationStrategy(null, CONTAINER_HOST_EXTERNAL));
 
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
                                                     DEFAULT_HOSTNAME,
-                                                    providerWithExternalAddress,
+                                                    provider,
                                                     devSystemServersConfigs,
                                                     commonSystemServersConfigs);
         final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
@@ -724,19 +706,11 @@ public class DockerInstanceRuntimeInfoTest {
         devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
         when(machineConfig.isDev()).thenReturn(true);
 
-        ServerEvaluationStrategyProvider providerWithInternal = new ServerEvaluationStrategyProvider() {
-
-            @Override
-            public ServerEvaluationStrategy getStrategy(ContainerInfo info,
-                                                        Map<String, ServerConfImpl> serverConf,
-                                                        String internalHostname) {
-                return new DefaultServerEvaluationStrategy(info, serverConf, internalHostname, null, null, true);
-            }
-        };
+        when(provider.get()).thenReturn(new LocalDockerServerEvaluationStrategy(null, null));
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
                                                     DEFAULT_HOSTNAME,
-                                                    providerWithInternal,
+                                                    provider,
                                                     devSystemServersConfigs,
                                                     commonSystemServersConfigs);
 
@@ -764,63 +738,6 @@ public class DockerInstanceRuntimeInfoTest {
     }
 
     @Test
-    public void shouldUseEphemeralPortsWhenNotUsingInternalAddresses() throws Exception {
-        //given
-        when(networkSettings.getIpAddress()).thenReturn(DEFAULT_ADDRESS_INTERNAL);
-        when(networkSettings.getGateway()).thenReturn(DEFAULT_ADDRESS);
-
-        Map<String, List<PortBinding>> ports = new HashMap<>();
-        when(networkSettings.getPorts()).thenReturn(ports);
-        ports.put("4301/tcp", Collections.singletonList(new PortBinding().withHostIp(DEFAULT_ADDRESS)
-                                                                .withHostPort("32100")));
-        ports.put("4305/udp", Collections.singletonList(new PortBinding().withHostIp(DEFAULT_ADDRESS)
-                                                                .withHostPort("32103")));
-        Set<ServerConf> commonSystemServersConfigs = new HashSet<>();
-        commonSystemServersConfigs.add(new ServerConfImpl("sysServer1-tcp", "4301/tcp", "http", "/some/path1"));
-        Set<ServerConf> devSystemServersConfigs = new HashSet<>();
-        devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
-        when(machineConfig.isDev()).thenReturn(true);
-
-        ServerEvaluationStrategyProvider providerWithoutInternal = new ServerEvaluationStrategyProvider() {
-
-            @Override
-            public ServerEvaluationStrategy getStrategy(ContainerInfo info,
-                                                        Map<String, ServerConfImpl> serverConf,
-                                                        String internalHostname) {
-                return new DefaultServerEvaluationStrategy(info, serverConf, internalHostname, null, null, false);
-            }
-        };
-        runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
-                                                    machineConfig,
-                                                    DEFAULT_HOSTNAME,
-                                                    providerWithoutInternal,
-                                                    devSystemServersConfigs,
-                                                    commonSystemServersConfigs);
-
-        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
-        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
-                                                       "http",
-                                                       DEFAULT_ADDRESS + ":32100",
-                                                       "http://" + DEFAULT_ADDRESS + ":32100/some/path1",
-                                                       new ServerPropertiesImpl("/some/path1",
-                                                                                DEFAULT_ADDRESS + ":32100",
-                                                                                "http://" + DEFAULT_ADDRESS + ":32100/some/path1")));
-        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
-                                                       null,
-                                                       DEFAULT_ADDRESS + ":32103",
-                                                       null,
-                                                       new ServerPropertiesImpl("some/path4",
-                                                                                DEFAULT_ADDRESS + ":32103",
-                                                                                null)));
-
-        //when
-        final Map<String, ServerImpl> servers = runtimeInfo.getServers();
-
-        //then
-        assertEquals(servers, expectedServers, "Expected servers to not use internal container address and ports");
-    }
-
-    @Test
     public void shouldStillUseExternalAddressWithInternalAddress() throws Exception {
         //given
         when(networkSettings.getIpAddress()).thenReturn(DEFAULT_ADDRESS_INTERNAL);
@@ -838,24 +755,11 @@ public class DockerInstanceRuntimeInfoTest {
         devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
         when(machineConfig.isDev()).thenReturn(true);
 
-        ServerEvaluationStrategyProvider providerWithLimitedContainerInfo = new ServerEvaluationStrategyProvider() {
-
-            @Override
-            public ServerEvaluationStrategy getStrategy(ContainerInfo info,
-                                                        Map<String, ServerConfImpl> serverConf,
-                                                        String internalHostname) {
-                return new DefaultServerEvaluationStrategy(info,
-                                                           serverConf,
-                                                           DEFAULT_HOSTNAME,
-                                                           null,
-                                                           CONTAINER_HOST_EXTERNAL,
-                                                           true);
-            }
-        };
+        when(provider.get()).thenReturn(new LocalDockerServerEvaluationStrategy(null, CONTAINER_HOST_EXTERNAL));
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
                                                     DEFAULT_HOSTNAME,
-                                                    providerWithLimitedContainerInfo,
+                                                    provider,
                                                     devSystemServersConfigs,
                                                     commonSystemServersConfigs);
 
@@ -900,24 +804,11 @@ public class DockerInstanceRuntimeInfoTest {
         devSystemServersConfigs.add(new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
         when(machineConfig.isDev()).thenReturn(true);
 
-        ServerEvaluationStrategyProvider providerWithoutInternal = new ServerEvaluationStrategyProvider() {
-
-            @Override
-            public ServerEvaluationStrategy getStrategy(ContainerInfo info,
-                                                        Map<String, ServerConfImpl> serverConf,
-                                                        String internalHostname) {
-                return new DefaultServerEvaluationStrategy(info,
-                                                           serverConf,
-                                                           internalHostname,
-                                                           null,
-                                                           null,
-                                                           true);
-            }
-        };
+        when(provider.get()).thenReturn(new DefaultServerEvaluationStrategy(null, null));
         runtimeInfo = new DockerInstanceRuntimeInfo(containerInfo,
                                                     machineConfig,
                                                     DEFAULT_HOSTNAME,
-                                                    providerWithoutInternal,
+                                                    provider,
                                                     devSystemServersConfigs,
                                                     commonSystemServersConfigs);
 

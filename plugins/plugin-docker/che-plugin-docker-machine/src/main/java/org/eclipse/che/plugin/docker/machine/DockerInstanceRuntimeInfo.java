@@ -23,15 +23,12 @@ import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
 import org.eclipse.che.plugin.docker.client.json.ContainerState;
 import org.eclipse.che.plugin.docker.client.json.HostConfig;
 import org.eclipse.che.plugin.docker.client.json.NetworkSettings;
-import org.eclipse.che.plugin.docker.client.json.PortBinding;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -229,20 +226,7 @@ public class DockerInstanceRuntimeInfo implements MachineRuntimeInfo {
 
     @Override
     public Map<String, ServerImpl> getServers() {
-        ServerEvaluationStrategy strategy = provider.getStrategy(info, serversConf, internalHost);
-        Map<String, List<PortBinding>> ports;
-        if (info.getNetworkSettings() != null && info.getNetworkSettings().getPorts() != null) {
-            ports = info.getNetworkSettings().getPorts();
-        } else {
-            return Collections.emptyMap();
-        }
-
-        Map<String, ServerImpl> servers = new LinkedHashMap<>();
-
-        for (String portProtocol : ports.keySet()) {
-            servers.put(portProtocol, strategy.getServer(portProtocol));
-        }
-
-        return servers;
+        ServerEvaluationStrategy strategy = provider.get();
+        return strategy.getServers(info, internalHost, serversConf);
     }
 }
