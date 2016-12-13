@@ -89,6 +89,7 @@ public class DockerInstanceTest {
 
     @BeforeMethod
     public void setUp() throws IOException {
+        when(dockerConnectorProviderMock.get()).thenReturn(dockerConnectorMock);
         dockerInstance = getDockerInstance();
         when(dockerConnectorMock.createExec(any(CreateExecParams.class))).thenReturn(execMock);
         when(execMock.getId()).thenReturn(EXEC_ID);
@@ -99,7 +100,6 @@ public class DockerInstanceTest {
             return msgProc;
         }).when(dockerConnectorMock)
           .startExec(any(StartExecParams.class), any());
-        when(dockerConnectorProviderMock.get()).thenReturn(dockerConnectorMock);
     }
 
     @Test(expectedExceptions = MachineException.class)
