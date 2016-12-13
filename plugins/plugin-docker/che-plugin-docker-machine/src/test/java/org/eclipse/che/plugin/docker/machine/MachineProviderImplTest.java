@@ -24,6 +24,7 @@ import org.eclipse.che.commons.lang.os.WindowsPathEscaper;
 import org.eclipse.che.commons.subject.SubjectImpl;
 import org.eclipse.che.plugin.docker.client.DockerConnector;
 import org.eclipse.che.plugin.docker.client.DockerConnectorConfiguration;
+import org.eclipse.che.plugin.docker.client.DockerConnectorProvider;
 import org.eclipse.che.plugin.docker.client.ProgressMonitor;
 import org.eclipse.che.plugin.docker.client.UserSpecificDockerRegistryCredentialsProvider;
 import org.eclipse.che.plugin.docker.client.json.ContainerConfig;
@@ -90,6 +91,9 @@ public class MachineProviderImplTest {
     private DockerConnector dockerConnector;
 
     @Mock
+    private DockerConnectorProvider dockerConnectorProvider;
+
+    @Mock
     private DockerConnectorConfiguration dockerConnectorConfiguration;
 
     @Mock
@@ -120,6 +124,8 @@ public class MachineProviderImplTest {
 
     @BeforeMethod
     public void setUp() throws Exception {
+        when(dockerConnectorProvider.get()).thenReturn(dockerConnector);
+
         when(dockerConnectorConfiguration.getDockerHostIp()).thenReturn("123.123.123.123");
         when(dockerNode.getProjectsFolder()).thenReturn("/tmp/projects");
 
@@ -1210,7 +1216,7 @@ public class MachineProviderImplTest {
         }
 
         MachineProviderImpl build() throws IOException {
-            return new MachineProviderImpl(dockerConnector,
+            return new MachineProviderImpl(dockerConnectorProvider,
                                            dockerConnectorConfiguration,
                                            credentialsReader,
                                            dockerMachineFactory,

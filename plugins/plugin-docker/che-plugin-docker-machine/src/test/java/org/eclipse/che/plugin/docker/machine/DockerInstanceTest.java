@@ -21,6 +21,7 @@ import org.eclipse.che.api.machine.server.model.impl.MachineConfigImpl;
 import org.eclipse.che.api.machine.server.model.impl.MachineImpl;
 import org.eclipse.che.api.machine.server.model.impl.MachineSourceImpl;
 import org.eclipse.che.plugin.docker.client.DockerConnector;
+import org.eclipse.che.plugin.docker.client.DockerConnectorProvider;
 import org.eclipse.che.plugin.docker.client.Exec;
 import org.eclipse.che.plugin.docker.client.LogMessage;
 import org.eclipse.che.plugin.docker.client.MessageProcessor;
@@ -78,6 +79,8 @@ public class DockerInstanceTest {
     @Mock
     private DockerConnector            dockerConnectorMock;
     @Mock
+    private DockerConnectorProvider    dockerConnectorProviderMock;
+    @Mock
     private DockerInstanceStopDetector dockerInstanceStopDetectorMock;
     @Mock
     private LineConsumer               outputConsumer;
@@ -96,6 +99,7 @@ public class DockerInstanceTest {
             return msgProc;
         }).when(dockerConnectorMock)
           .startExec(any(StartExecParams.class), any());
+        when(dockerConnectorProviderMock.get()).thenReturn(dockerConnectorMock);
     }
 
     @Test(expectedExceptions = MachineException.class)
@@ -207,7 +211,7 @@ public class DockerInstanceTest {
                                              String container,
                                              String image,
                                              boolean snapshotUseRegistry) {
-        return new DockerInstance(dockerConnectorMock,
+        return new DockerInstance(dockerConnectorProviderMock,
                                   registry,
                                   USERNAME,
                                   mock(DockerMachineFactory.class),
