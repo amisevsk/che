@@ -36,15 +36,26 @@ public class LocalDockerServerEvaluationStrategy extends ServerEvaluationStrateg
     protected Map<String, String> getInternalAddressesAndPorts(ContainerInfo containerInfo, String internalHost) {
         String internalAddressContainer = containerInfo.getNetworkSettings().getIpAddress();
 
-        String internalAddress = internalAddressContainer != null && !internalAddressContainer.isEmpty() ?
-                                 internalAddressContainer :
-                                 internalHost;
+        String internalAddress;
+        boolean useExposedPorts = true;
+        if (internalAddressContainer != null && !internalAddressContainer.isEmpty()) {
+            internalAddress = internalAddressContainer;
+        } else {
+            internalAddress = internalHost;
+            useExposedPorts = false;
+        }
 
         Map<String, List<PortBinding>> portBindings = containerInfo.getNetworkSettings().getPorts();
 
         Map<String, String> addressesAndPorts = new HashMap<>();
-        for (String port : portBindings.keySet()) {
-            addressesAndPorts.put(port, internalAddress + ":" + port.split("/")[0]);
+        for (Map.Entry<String, List<PortBinding>> portEntry : portBindings.entrySet()) {
+            String exposedPort = portEntry.getKey().split("/")[0];
+            String ephemeralPort = portEntry.getValue().get(0).getHostPort();
+            if (useExposedPorts) {
+                addressesAndPorts.put(portEntry.getKey(), internalAddress + ":" + exposedPort);
+            } else {
+                addressesAndPorts.put(portEntry.getKey(), internalAddress + ":" + ephemeralPort);
+            }
         }
         return addressesAndPorts;
     }
