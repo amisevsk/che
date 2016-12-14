@@ -51,6 +51,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -91,9 +92,6 @@ public class MachineProviderImplTest {
     private DockerConnector dockerConnector;
 
     @Mock
-    private DockerConnectorProvider dockerConnectorProvider;
-
-    @Mock
     private DockerConnectorConfiguration dockerConnectorConfiguration;
 
     @Mock
@@ -122,10 +120,20 @@ public class MachineProviderImplTest {
 
     private MachineProviderImpl provider;
 
+    private class MockConnectorProvider extends DockerConnectorProvider {
+
+        public MockConnectorProvider() {
+            super(Collections.emptyMap(), "default");
+        }
+
+        @Override
+        public DockerConnector get() {
+            return dockerConnector;
+        }
+    }
+
     @BeforeMethod
     public void setUp() throws Exception {
-        when(dockerConnectorProvider.get()).thenReturn(dockerConnector);
-
         when(dockerConnectorConfiguration.getDockerHostIp()).thenReturn("123.123.123.123");
         when(dockerNode.getProjectsFolder()).thenReturn("/tmp/projects");
 
@@ -1216,7 +1224,7 @@ public class MachineProviderImplTest {
         }
 
         MachineProviderImpl build() throws IOException {
-            return new MachineProviderImpl(dockerConnectorProvider,
+            return new MachineProviderImpl(new MockConnectorProvider(),
                                            dockerConnectorConfiguration,
                                            credentialsReader,
                                            dockerMachineFactory,
