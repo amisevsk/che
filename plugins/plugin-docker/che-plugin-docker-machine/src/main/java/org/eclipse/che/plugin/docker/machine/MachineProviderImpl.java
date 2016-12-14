@@ -37,6 +37,7 @@ import org.eclipse.che.commons.lang.Size;
 import org.eclipse.che.commons.lang.os.WindowsPathEscaper;
 import org.eclipse.che.plugin.docker.client.DockerConnector;
 import org.eclipse.che.plugin.docker.client.DockerConnectorConfiguration;
+import org.eclipse.che.plugin.docker.client.DockerConnectorProvider;
 import org.eclipse.che.plugin.docker.client.ProgressLineFormatterImpl;
 import org.eclipse.che.plugin.docker.client.ProgressMonitor;
 import org.eclipse.che.plugin.docker.client.UserSpecificDockerRegistryCredentialsProvider;
@@ -72,7 +73,6 @@ import java.net.SocketTimeoutException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -129,7 +129,7 @@ public class MachineProviderImpl implements MachineInstanceProvider {
     private final WindowsPathEscaper                            windowsPathEscaper;
 
     @Inject
-    public MachineProviderImpl(DockerConnector docker,
+    public MachineProviderImpl(DockerConnectorProvider dockerProvider,
                                DockerConnectorConfiguration dockerConnectorConfiguration,
                                UserSpecificDockerRegistryCredentialsProvider dockerCredentials,
                                DockerMachineFactory dockerMachineFactory,
@@ -150,7 +150,7 @@ public class MachineProviderImpl implements MachineInstanceProvider {
                                @Nullable @Named("che.docker.network_driver") String networkDriver,
                                WindowsPathEscaper windowsPathEscaper)
             throws IOException {
-        this.docker = docker;
+        this.docker = dockerProvider.get();
         this.dockerCredentials = dockerCredentials;
         this.dockerMachineFactory = dockerMachineFactory;
         this.dockerInstanceStopDetector = dockerInstanceStopDetector;
