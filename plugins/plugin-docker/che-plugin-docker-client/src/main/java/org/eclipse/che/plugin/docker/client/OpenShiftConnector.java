@@ -38,6 +38,8 @@ import org.eclipse.che.plugin.docker.client.json.ImageConfig;
 import org.eclipse.che.plugin.docker.client.json.PortBinding;
 import org.eclipse.che.plugin.docker.client.params.CreateContainerParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveContainerParams;
+import org.eclipse.che.plugin.docker.client.params.StartContainerParams;
+import org.eclipse.che.plugin.docker.client.params.network.ConnectContainerToNetworkParams;
 import org.jboss.dmr.ModelNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -168,6 +170,11 @@ public class OpenShiftConnector extends DockerConnector {
         return new ContainerCreated(containerID, null);
     }
 
+    @Override
+    public void startContainer(final StartContainerParams params) throws IOException {
+        // Not used in OpenShift
+    }
+
     /**
      * @param docker
      * @param container
@@ -231,6 +238,11 @@ public class OpenShiftConnector extends DockerConnector {
 
         LOG.info("Removing OpenShift Pod " + pod.getName());
         openShiftClient.delete(pod);
+    }
+
+    @Override
+    public void connectContainerToNetwork(ConnectContainerToNetworkParams params) throws IOException {
+        // Not used in OpenShift
     }
 
     private IService getCheServiceBySelector(String selectorKey, String selectorValue) {
