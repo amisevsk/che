@@ -58,6 +58,7 @@ import org.eclipse.che.plugin.docker.client.params.PullParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveContainerParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveImageParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveNetworkParams;
+import org.eclipse.che.plugin.docker.client.params.StartContainerParams;
 import org.eclipse.che.plugin.docker.client.params.TagParams;
 import org.eclipse.che.plugin.docker.client.params.network.ConnectContainerToNetworkParams;
 import org.eclipse.che.plugin.docker.client.params.network.CreateNetworkParams;
@@ -276,11 +277,10 @@ public class MachineProviderImpl implements MachineInstanceProvider {
                                         networkName,
                                         service);
 
-//            connectContainerToAdditionalNetworks(container,
-//                                                 service);
-//
-//            //docker.startContainer(StartContainerParams.create(container));
-//            openShift.startContainer(StartContainerParams.create(container));
+            connectContainerToAdditionalNetworks(container,
+                                                 service);
+
+            docker.startContainer(StartContainerParams.create(container));
 
             readContainerLogsInSeparateThread(container,
                                               workspaceId,
