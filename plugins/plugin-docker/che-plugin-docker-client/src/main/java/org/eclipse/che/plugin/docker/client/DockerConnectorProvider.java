@@ -12,6 +12,9 @@ package org.eclipse.che.plugin.docker.client;
 
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
@@ -20,6 +23,7 @@ import com.google.inject.name.Named;
 @Singleton
 public class DockerConnectorProvider implements Provider<DockerConnector> {
 
+    private static final Logger LOG  = LoggerFactory.getLogger(DockerConnectorProvider.class);
     private DockerConnector connector;
 
     @Inject
@@ -28,6 +32,10 @@ public class DockerConnectorProvider implements Provider<DockerConnector> {
         if (connectors.containsKey(property)) {
             this.connector = connectors.get(property);
         } else {
+            LOG.warn("Property 'che.docker_connector.provider' did not match any bound "
+                    + "implementation of DockerConnector. Using default.");
+            LOG.warn("\t Value of che.docker_connector.provider: " + property);
+            LOG.warn("\t Bound implementations: " + connectors.toString());
             this.connector = connectors.get("default");
         }
     }
