@@ -15,8 +15,6 @@ import java.util.Map;
 
 import org.eclipse.che.api.core.ServerException;
 import org.eclipse.che.plugin.docker.machine.local.LocalDockerModule;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -35,10 +33,6 @@ import com.google.inject.name.Named;
  */
 public class ServerEvaluationStrategyProvider implements Provider<ServerEvaluationStrategy> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ServerEvaluationStrategyProvider.class);
-
-    private static final String DEFAULT_STRATEGY_NAME = "default";
-
     private ServerEvaluationStrategy strategy;
 
     @Inject
@@ -48,7 +42,8 @@ public class ServerEvaluationStrategyProvider implements Provider<ServerEvaluati
         if (strategies.containsKey(chosenStrategy)) {
             this.strategy = strategies.get(chosenStrategy);
         } else {
-            throw new ServerException("AUHGAUHG");
+            throw new ServerException(String.format("Property che.docker.server_evaluation_strategy=%s "
+                                                  + "does not match provided strategies", chosenStrategy));
         }
     }
 
