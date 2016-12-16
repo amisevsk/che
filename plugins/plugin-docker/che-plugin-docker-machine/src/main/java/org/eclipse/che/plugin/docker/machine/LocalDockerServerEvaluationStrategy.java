@@ -1,3 +1,14 @@
+/*******************************************************************************
+ * Copyright (c) 2016 Red Hat Inc.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *   Red Hat Inc. - initial API and implementation
+ *******************************************************************************/
+
 package org.eclipse.che.plugin.docker.machine;
 
 import java.util.HashMap;
@@ -11,6 +22,7 @@ import org.eclipse.che.plugin.docker.client.json.PortBinding;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
+import static com.google.common.base.Strings.isNullOrEmpty;
 
 /**
  * Represents a server evaluation strategy for the configuration where the workspace server and
@@ -38,7 +50,7 @@ public class LocalDockerServerEvaluationStrategy extends ServerEvaluationStrateg
 
         String internalAddress;
         boolean useExposedPorts = true;
-        if (internalAddressContainer != null && !internalAddressContainer.isEmpty()) {
+        if (!isNullOrEmpty(internalAddressContainer)) {
             internalAddress = internalAddressContainer;
         } else {
             internalAddress = internalHost;
@@ -66,7 +78,7 @@ public class LocalDockerServerEvaluationStrategy extends ServerEvaluationStrateg
 
         String externalAddress = externalAddressProperty != null ?
                                  externalAddressProperty :
-                                 externalAddressContainer != null && !externalAddressContainer.isEmpty() ?
+                                 !isNullOrEmpty(externalAddressContainer) ?
                                  externalAddressContainer :
                                  internalHost;
 

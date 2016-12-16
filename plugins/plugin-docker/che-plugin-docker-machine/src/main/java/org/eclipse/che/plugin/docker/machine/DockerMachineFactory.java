@@ -81,6 +81,8 @@ public interface DockerMachineFactory {
      *
      * @param containerInfo description of docker container
      * @param machineConfig config of machine
+     * @param internalHost docker host internal hostname (used by the wsmaster). May be overridden by Server
+     *                     Evaluation Strategy
      */
     DockerInstanceRuntimeInfo createMetadata(@Assisted ContainerInfo containerInfo,
                                              @Assisted MachineConfig machineConfig,

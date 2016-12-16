@@ -7,6 +7,7 @@
  *
  * Contributors:
  *   Codenvy, S.A. - initial API and implementation
+ *   Red Hat Inc.  - Add test cases
  *******************************************************************************/
 package org.eclipse.che.plugin.docker.machine;
 
