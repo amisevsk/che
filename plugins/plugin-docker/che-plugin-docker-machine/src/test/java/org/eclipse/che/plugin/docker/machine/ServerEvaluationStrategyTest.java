@@ -80,26 +80,18 @@ public class ServerEvaluationStrategyTest {
         when(containerConfig.getLabels()).thenReturn(Collections.emptyMap());
     }
 
+    /**
+     * Test: che.docker.ip property takes highest precedence for internal address
+     * @throws Exception
+     */
     @Test
     public void defaultStrategyShouldUseInternalIpPropertyToOverrideContainerInfo() throws Exception {
         // given
         strategy = new DefaultServerEvaluationStrategy(CHE_DOCKER_IP, null);
 
-        final Map<String, ServerImpl> expectedServers = new HashMap<>();
-        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
-                                                       "http",
-                                                       CONTAINERINFO_GATEWAY + ":32100",
-                                                       "http://" + CONTAINERINFO_GATEWAY + ":32100/some/path1",
-                                                       new ServerPropertiesImpl("/some/path1",
-                                                                                CHE_DOCKER_IP + ":32100",
-                                                                                "http://" + CHE_DOCKER_IP + ":32100/some/path1")));
-        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
-                                                       null,
-                                                       CONTAINERINFO_GATEWAY  + ":32103",
-                                                       null,
-                                                       new ServerPropertiesImpl("some/path4",
-                                                                                CHE_DOCKER_IP + ":32103",
-                                                                                null)));
+        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
+                                                                           CHE_DOCKER_IP,
+                                                                           false);
 
         // when
         final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
@@ -110,27 +102,18 @@ public class ServerEvaluationStrategyTest {
         assertEquals(servers, expectedServers);
     }
 
+    /**
+     * Test: If che.docker.ip is null, containerInfo.getGateway() is used for internal address
+     * @throws Exception
+     */
     @Test
-    public void defaultStrategyShouldSetExternalAddressAsInternalAddressIfContainerExternalHostnameIsNull() throws Exception {
+    public void defaultStrategyShouldUseContainerInfoWhenInternalIpPropertyIsNull() throws Exception {
         // given
-
         strategy = new DefaultServerEvaluationStrategy(null, null);
 
-        final Map<String, ServerImpl> expectedServers = new HashMap<>();
-        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
-                                                       "http",
-                                                       CONTAINERINFO_GATEWAY  + ":32100",
-                                                       "http://" + CONTAINERINFO_GATEWAY  + ":32100/some/path1",
-                                                       new ServerPropertiesImpl("/some/path1",
-                                                                                CONTAINERINFO_GATEWAY  + ":32100",
-                                                                                "http://" + CONTAINERINFO_GATEWAY  + ":32100/some/path1")));
-        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
-                                                       null,
-                                                       CONTAINERINFO_GATEWAY  + ":32103",
-                                                       null,
-                                                       new ServerPropertiesImpl("some/path4",
-                                                                                CONTAINERINFO_GATEWAY  + ":32103",
-                                                                                null)));
+        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
+                                                                           CONTAINERINFO_GATEWAY,
+                                                                           false);
 
         // when
         final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
@@ -141,127 +124,235 @@ public class ServerEvaluationStrategyTest {
         assertEquals(servers, expectedServers);
     }
 
+    /**
+     * Test: If che.docker.ip is null, and containerInfo.getGateway() is null or empty, should use provided
+     *       internalHostname value. Also tests that this value is used for external address in this case.
+     * @throws Exception
+     */
     @Test
-    public void defaultStrategyShouldSetExternalAddressDistinctFromInternalWhenExternalHostnameIsNotNull() throws Exception {
+    public void defaultStrategyShouldUseInternalHostWhenBothIpPropertyAndContainerInfoAreNull() throws Exception {
         // given
-        strategy = new DefaultServerEvaluationStrategy(null, CHE_DOCKER_IP_EXTERNAL);
+        strategy = new DefaultServerEvaluationStrategy(null, null);
+        when(networkSettings.getGateway()).thenReturn("");
 
-        final Map<String, ServerImpl> expectedServers = new HashMap<>();
-        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
-                                                              "http",
-                                                              CHE_DOCKER_IP_EXTERNAL  + ":32100",
-                                                              "http://" + CHE_DOCKER_IP_EXTERNAL  + ":32100/some/path1",
-                                                              new ServerPropertiesImpl("/some/path1",
-                                                                                              CONTAINERINFO_GATEWAY + ":32100",
-                                                                                              "http://" + CONTAINERINFO_GATEWAY + ":32100/some/path1")));
-        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
-                                                              null,
-                                                              CHE_DOCKER_IP_EXTERNAL  + ":32103",
-                                                              null,
-                                                              new ServerPropertiesImpl("some/path4",
-                                                                                              CONTAINERINFO_GATEWAY + ":32103",
-                                                                                              null)));
+        final Map<String, ServerImpl> expectedServers = getExpectedServers(DEFAULT_HOSTNAME,
+                                                                           DEFAULT_HOSTNAME,
+                                                                           false);
 
         // when
-        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
-                                                                    null,
-                                                                    serverConfs);
-
-        // then
-        assertEquals(servers, expectedServers);
-    }
-
-
-    @Test
-    public void localDockerStrategyShouldUseExposedPortsWhenPossible() throws Exception {
-        //given
-        strategy = new LocalDockerServerEvaluationStrategy(null, null);
-
-        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
-        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
-                                                       "http",
-                                                       CONTAINERINFO_GATEWAY + ":32100",
-                                                       "http://" + CONTAINERINFO_GATEWAY + ":32100/some/path1",
-                                                       new ServerPropertiesImpl("/some/path1",
-                                                                                CONTAINERINFO_IP_ADDRESS + ":4301",
-                                                                                "http://" + CONTAINERINFO_IP_ADDRESS + ":4301/some/path1")));
-        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
-                                                       null,
-                                                       CONTAINERINFO_GATEWAY + ":32103",
-                                                       null,
-                                                       new ServerPropertiesImpl("some/path4",
-                                                                                CONTAINERINFO_IP_ADDRESS + ":4305",
-                                                                                null)));
-
-        //when
-        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
-                                                                    null,
-                                                                    serverConfs);
-
-        //then
-        assertEquals(servers, expectedServers, "Expected strategy to use internal container address and ports");
-    }
-
-    @Test
-    public void localDockerStrategyShouldStillUseExternalAddressWithInternalAddress() throws Exception {
-        //given
-        strategy = new LocalDockerServerEvaluationStrategy(null, CHE_DOCKER_IP_EXTERNAL);
-
-        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
-        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
-                                                       "http",
-                                                       CHE_DOCKER_IP_EXTERNAL  + ":32100",
-                                                       "http://" + CHE_DOCKER_IP_EXTERNAL  + ":32100/some/path1",
-                                                       new ServerPropertiesImpl("/some/path1",
-                                                                                CONTAINERINFO_IP_ADDRESS + ":4301",
-                                                                                "http://" + CONTAINERINFO_IP_ADDRESS + ":4301/some/path1")));
-        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
-                                                       null,
-                                                       CHE_DOCKER_IP_EXTERNAL + ":32103",
-                                                       null,
-                                                       new ServerPropertiesImpl("some/path4",
-                                                                                CONTAINERINFO_IP_ADDRESS + ":4305",
-                                                                                null)));
-
-        //when
-        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
-                                                                    null,
-                                                                    serverConfs);
-
-        //then
-        assertEquals(servers, expectedServers, "Expected strategy to use external address property to override");
-    }
-
-    @Test
-    public void localDockerStrategyShouldUseInternalHostnameWhenContainerInfoIsUnavailable() throws Exception {
-        //given
-        strategy = new LocalDockerServerEvaluationStrategy(null, null);
-
-        when(networkSettings.getIpAddress()).thenReturn(null);
-        when(networkSettings.getGateway()).thenReturn(null);
-
-        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
-        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
-                                                       "http",
-                                                       DEFAULT_HOSTNAME + ":32100",
-                                                       "http://" + DEFAULT_HOSTNAME + ":32100/some/path1",
-                                                       new ServerPropertiesImpl("/some/path1",
-                                                                                DEFAULT_HOSTNAME + ":32100",
-                                                                                "http://" + DEFAULT_HOSTNAME + ":32100/some/path1")));
-        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
-                                                       null,
-                                                       DEFAULT_HOSTNAME + ":32103",
-                                                       null,
-                                                       new ServerPropertiesImpl("some/path4",
-                                                                                DEFAULT_HOSTNAME + ":32103",
-                                                                                null)));
-
-        //when
         final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
                                                                     DEFAULT_HOSTNAME,
                                                                     serverConfs);
 
-        //then
-        assertEquals(servers, expectedServers, "Expected servers to fall back to provided hostname when ContainerInfo is not available");
+        // then
+        assertEquals(servers, expectedServers);
+    }
+
+    /**
+     * Test: If che.docker.ip.external is not null, that should take precedence for external address.
+     * @throws Exception
+     */
+    @Test
+    public void defaultStrategyShouldUseExtenalIpPropertyWhenAvailable() throws Exception {
+        // given
+        strategy = new DefaultServerEvaluationStrategy(null, CHE_DOCKER_IP_EXTERNAL);
+
+        final Map<String, ServerImpl> expectedServers = getExpectedServers(CHE_DOCKER_IP_EXTERNAL,
+                                                                           CONTAINERINFO_GATEWAY,
+                                                                           false);
+
+        // when
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
+                                                                    DEFAULT_HOSTNAME,
+                                                                    serverConfs);
+
+        // then
+        assertEquals(servers, expectedServers);
+    }
+
+    /**
+     * Test: If che.docker.ip.external is null, should use containerInfo.getGateway()
+     * @throws Exception
+     */
+    @Test
+    public void defaultStrategyShouldUseContainerInfoForExternalWhenPropertyIsNull() throws Exception {
+        // given
+        strategy = new DefaultServerEvaluationStrategy(null, null);
+
+        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
+                                                                           CONTAINERINFO_GATEWAY,
+                                                                           false);
+
+        // when
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
+                                                                    DEFAULT_HOSTNAME,
+                                                                    serverConfs);
+
+        // then
+        assertEquals(servers, expectedServers);
+    }
+
+    /**
+     * Test: local docker strategy should use internal container address when it can.
+     * @throws Exception
+     */
+    @Test
+    public void localDockerStrategyShouldUseContainerIpAddressWhenAvailable() throws Exception {
+        // given
+        strategy = new LocalDockerServerEvaluationStrategy(null, null);
+
+        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
+                                                                           CONTAINERINFO_IP_ADDRESS,
+                                                                           true);
+
+        // when
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
+                                                                    DEFAULT_HOSTNAME,
+                                                                    serverConfs);
+
+        // then
+        assertEquals(servers, expectedServers);
+    }
+
+    /**
+     * Test: local docker strategy should ignore che.docker.ip property.
+     * @throws Exception
+     */
+    @Test
+    public void localDockerStrategyShouldIgnoreCheDockerIpProperty() throws Exception {
+        // given
+        strategy = new LocalDockerServerEvaluationStrategy(CHE_DOCKER_IP, null);
+
+        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
+                                                                           CONTAINERINFO_IP_ADDRESS,
+                                                                           true);
+
+        // when
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
+                                                                    DEFAULT_HOSTNAME,
+                                                                    serverConfs);
+
+        // then
+        assertEquals(servers, expectedServers);
+    }
+
+    /**
+     * Test: local docker strategy should use passed parameter internalHost when containerInfo.getIpAddress() is null.
+     * @throws Exception
+     */
+    @Test
+    public void localDockerStrategyShouldUseProvidedInternalHostWhenContainerInfoUnavailable() throws Exception {
+        // given
+        strategy = new LocalDockerServerEvaluationStrategy(CHE_DOCKER_IP, null);
+        when(networkSettings.getIpAddress()).thenReturn("");
+
+        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
+                                                                           DEFAULT_HOSTNAME,
+                                                                           false);
+
+        // when
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
+                                                                    DEFAULT_HOSTNAME,
+                                                                    serverConfs);
+
+        // then
+        assertEquals(servers, expectedServers);
+    }
+
+    /**
+     * Test: local docker strategy should let che.docker.ip.external take precedence if available
+     * @throws Exception
+     */
+    @Test
+    public void localDockerStrategyShouldUseExternalDockerIpPropertyIfAvailable() throws Exception {
+        // given
+        strategy = new LocalDockerServerEvaluationStrategy(CHE_DOCKER_IP, CHE_DOCKER_IP_EXTERNAL);
+
+        final Map<String, ServerImpl> expectedServers = getExpectedServers(CHE_DOCKER_IP_EXTERNAL,
+                                                                           CONTAINERINFO_IP_ADDRESS,
+                                                                           true);
+
+        // when
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
+                                                                    DEFAULT_HOSTNAME,
+                                                                    serverConfs);
+
+        // then
+        assertEquals(servers, expectedServers);
+    }
+
+    /**
+     * Test: local docker strategy should use containerInfo for externalHost if property is null
+     * @throws Exception
+     */
+    @Test
+    public void localDockerStrategyShouldUseContainerInfoForExternalWhenPropertyIsNull() throws Exception {
+        // given
+        strategy = new LocalDockerServerEvaluationStrategy(CHE_DOCKER_IP, null);
+
+        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
+                                                                           CONTAINERINFO_IP_ADDRESS,
+                                                                           true);
+
+        // when
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
+                                                                    DEFAULT_HOSTNAME,
+                                                                    serverConfs);
+
+        // then
+        assertEquals(servers, expectedServers);
+    }
+
+    /**
+     * Test: local docker strategy should use containerInfo for externalHost if property is null
+     * @throws Exception
+     */
+    @Test
+    public void localDockerStrategyShouldUseInternalHostWhenContainerInfoIsUnavailable() throws Exception {
+        // given
+        strategy = new LocalDockerServerEvaluationStrategy(CHE_DOCKER_IP, null);
+        when(networkSettings.getGateway()).thenReturn("");
+
+        final Map<String, ServerImpl> expectedServers = getExpectedServers(DEFAULT_HOSTNAME,
+                                                                           CONTAINERINFO_IP_ADDRESS,
+                                                                           true);
+
+        // when
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
+                                                                    DEFAULT_HOSTNAME,
+                                                                    serverConfs);
+
+        // then
+        assertEquals(servers, expectedServers);
+    }
+
+    private Map<String, ServerImpl> getExpectedServers(String externalAddress,
+                                                       String internalAddress,
+                                                       boolean useExposedPorts) {
+        String port1;
+        String port2;
+        if (useExposedPorts) {
+            port1 = ":4301";
+            port2 = ":4305";
+        } else {
+            port1 = ":32100";
+            port2 = ":32103";
+        }
+        Map<String, ServerImpl> expectedServers = new HashMap<>();
+        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
+                "http",
+                externalAddress + ":32100",
+                "http://" + externalAddress + ":32100/some/path1",
+                new ServerPropertiesImpl("/some/path1",
+                                         internalAddress + port1,
+                                         "http://" + internalAddress + port1 + "/some/path1")));
+        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
+                null,
+                externalAddress + ":32103",
+                null,
+                new ServerPropertiesImpl("some/path4",
+                                         internalAddress + port2,
+                                         null)));
+        return expectedServers;
     }
 }
