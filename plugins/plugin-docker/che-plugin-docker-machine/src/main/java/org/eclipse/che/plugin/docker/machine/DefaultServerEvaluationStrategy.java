@@ -22,6 +22,8 @@ import org.eclipse.che.plugin.docker.client.json.PortBinding;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
+import static com.google.common.base.Strings.isNullOrEmpty;
+
 
 /**
  * Represents the default server evaluation strategy. By default, calling
@@ -48,7 +50,7 @@ public class DefaultServerEvaluationStrategy extends ServerEvaluationStrategy {
 
         String internalAddress = internalAddressProperty != null ?
                                  internalAddressProperty :
-                                 internalAddressContainer != null && !internalAddressContainer.isEmpty() ?
+                                 !isNullOrEmpty(internalAddressContainer) ?
                                  internalAddressContainer :
                                  internalHost;
 
@@ -63,7 +65,7 @@ public class DefaultServerEvaluationStrategy extends ServerEvaluationStrategy {
 
         String externalAddress = externalAddressProperty != null ?
                                  externalAddressProperty :
-                                 externalAddressContainer != null && !externalAddressContainer.isEmpty() ?
+                                 !isNullOrEmpty(externalAddressContainer) ?
                                  externalAddressContainer :
                                  internalHost;
 

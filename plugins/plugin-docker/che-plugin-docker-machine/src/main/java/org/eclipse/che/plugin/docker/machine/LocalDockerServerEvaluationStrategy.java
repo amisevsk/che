@@ -67,7 +67,7 @@ public class LocalDockerServerEvaluationStrategy extends ServerEvaluationStrateg
 
         String externalAddress = externalAddressProperty != null ?
                                  externalAddressProperty :
-                                 externalAddressContainer != null && !externalAddressContainer.isEmpty() ?
+                                 !isNullOrEmpty(externalAddressContainer) ?
                                  externalAddressContainer :
                                  internalHost;
 
