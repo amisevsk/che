@@ -51,6 +51,13 @@ public abstract class ServerEvaluationStrategy {
      */
     protected String externalAddressProperty;
 
+    @Inject
+    protected ServerEvaluationStrategy(@Nullable @Named("che.docker.ip")          String internalAddressProperty,
+                                       @Nullable @Named("che.docker.ip.external") String externalAddressProperty) {
+        this.internalAddressProperty = internalAddressProperty;
+        this.externalAddressProperty = externalAddressProperty;
+    }
+
     /**
      * Gets a map of all <strong>internal</strong> addresses exposed by the container in the form of
      * {@code "<address>:<port>"}
@@ -74,13 +81,6 @@ public abstract class ServerEvaluationStrategy {
      */
     protected abstract Map<String, String> getExternalAddressesAndPorts(ContainerInfo containerInfo,
                                                                         String internalAddress);
-
-    @Inject
-    protected ServerEvaluationStrategy(@Nullable @Named("che.docker.ip")          String internalAddressProperty,
-                                       @Nullable @Named("che.docker.ip.external") String externalAddressProperty) {
-        this.internalAddressProperty = internalAddressProperty;
-        this.externalAddressProperty = externalAddressProperty;
-    }
 
     /**
      * Constructs a map of {@link ServerImpl} from provided parameters, using selected strategy
@@ -123,7 +123,8 @@ public abstract class ServerEvaluationStrategy {
             ServerConfImpl serverConf = getServerConfImpl(portProtocol, labels, serverConfMap);
 
             // Add protocol and path to internal/external address, if applicable
-            String internalUrl = null, externalUrl = null;
+            String internalUrl = null;
+            String externalUrl = null;
             if (serverConf.getProtocol() != null) {
                 String pathSuffix = serverConf.getPath();
                 if (pathSuffix != null && !pathSuffix.isEmpty()) {

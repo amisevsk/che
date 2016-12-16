@@ -160,6 +160,35 @@ public class ServerEvaluationStrategyTest {
         assertEquals(servers, expectedServers);
     }
 
+    @Test
+    public void defaultStrategyShouldUseContainerInfoWhenExternalAddressPropertyIsNull() throws Exception {
+        // given
+        strategy = new DefaultServerEvaluationStrategy(null, null);
+
+        final Map<String, ServerImpl> expectedServers = new HashMap<>();
+        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
+                                                       "http",
+                                                       CONTAINERINFO_GATEWAY  + ":32100",
+                                                       "http://" + CONTAINERINFO_GATEWAY  + ":32100/some/path1",
+                                                       new ServerPropertiesImpl("/some/path1",
+                                                                                CONTAINERINFO_GATEWAY  + ":32100",
+                                                                                "http://" + CONTAINERINFO_GATEWAY  + ":32100/some/path1")));
+        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
+                                                       null,
+                                                       CONTAINERINFO_GATEWAY  + ":32103",
+                                                       null,
+                                                       new ServerPropertiesImpl("some/path4",
+                                                                                CONTAINERINFO_GATEWAY  + ":32103",
+                                                                                null)));
+
+        // when
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
+                                                                    null,
+                                                                    serverConfs);
+
+        // then
+        assertEquals(servers, expectedServers);
+    }
 
     @Test
     public void localDockerStrategyShouldUseExposedPortsWhenPossible() throws Exception {

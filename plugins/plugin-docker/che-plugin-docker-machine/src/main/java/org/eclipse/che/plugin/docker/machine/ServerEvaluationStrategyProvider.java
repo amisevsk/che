@@ -13,6 +13,7 @@ package org.eclipse.che.plugin.docker.machine;
 
 import java.util.Map;
 
+import org.eclipse.che.api.core.ServerException;
 import org.eclipse.che.plugin.docker.machine.local.LocalDockerModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,14 +43,12 @@ public class ServerEvaluationStrategyProvider implements Provider<ServerEvaluati
 
     @Inject
     public ServerEvaluationStrategyProvider(Map<String, ServerEvaluationStrategy> strategies,
-                                            @Named("che.docker.server_evaluation_strategy") String chosenStrategy) {
+                                            @Named("che.docker.server_evaluation_strategy") String chosenStrategy)
+                                            throws ServerException {
         if (strategies.containsKey(chosenStrategy)) {
             this.strategy = strategies.get(chosenStrategy);
         } else {
-            LOG.warn(String.format("Property che.docker.server_evaluation_strategy=%s"
-                                   + " does not refer to implemented strategy. Using default.",
-                                   chosenStrategy));
-            this.strategy = strategies.get(DEFAULT_STRATEGY_NAME);
+            throw new ServerException("AUHGAUHG");
         }
     }
 

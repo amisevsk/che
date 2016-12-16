@@ -11,6 +11,7 @@ import org.eclipse.che.plugin.docker.client.json.PortBinding;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
+import static com.google.common.base.Strings.isNullOrEmpty;
 
 /**
  * Represents a server evaluation strategy for the configuration where the workspace server and
@@ -38,7 +39,7 @@ public class LocalDockerServerEvaluationStrategy extends ServerEvaluationStrateg
 
         String internalAddress;
         boolean useExposedPorts = true;
-        if (internalAddressContainer != null && !internalAddressContainer.isEmpty()) {
+        if (!isNullOrEmpty(internalAddressContainer)) {
             internalAddress = internalAddressContainer;
         } else {
             internalAddress = internalHost;
