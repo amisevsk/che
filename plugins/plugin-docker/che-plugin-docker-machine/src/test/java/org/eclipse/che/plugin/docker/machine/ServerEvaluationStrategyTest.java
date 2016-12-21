@@ -13,6 +13,9 @@ package org.eclipse.che.plugin.docker.machine;
 
 import org.testng.annotations.Test;
 
+import static org.eclipse.che.plugin.docker.machine.ServerEvaluationStrategy.SERVER_CONF_LABEL_PATH_KEY;
+import static org.eclipse.che.plugin.docker.machine.ServerEvaluationStrategy.SERVER_CONF_LABEL_PROTOCOL_KEY;
+import static org.eclipse.che.plugin.docker.machine.ServerEvaluationStrategy.SERVER_CONF_LABEL_REF_KEY;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
@@ -21,7 +24,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.eclipse.che.api.core.model.machine.MachineConfig;
 import org.eclipse.che.api.machine.server.model.impl.ServerConfImpl;
 import org.eclipse.che.api.machine.server.model.impl.ServerImpl;
 import org.eclipse.che.api.machine.server.model.impl.ServerPropertiesImpl;
@@ -37,322 +39,288 @@ import org.testng.annotations.Listeners;
 @Listeners(MockitoTestNGListener.class)
 public class ServerEvaluationStrategyTest {
 
-    private static final String CHE_DOCKER_IP            = "container-host.com";
-    private static final String CHE_DOCKER_IP_EXTERNAL   = "container-host-ext.com";
     private static final String ALL_IP_ADDRESS           = "0.0.0.0";
     private static final String CONTAINERINFO_GATEWAY    = "172.17.0.1";
-    private static final String CONTAINERINFO_IP_ADDRESS = "172.17.0.200";
     private static final String DEFAULT_HOSTNAME         = "localhost";
 
     @Mock
     private ContainerInfo   containerInfo;
     @Mock
-    private MachineConfig   machineConfig;
-    @Mock
     private ContainerConfig containerConfig;
     @Mock
     private NetworkSettings networkSettings;
 
-    private ServerEvaluationStrategy strategy;
-
     private Map<String, ServerConfImpl> serverConfs;
 
-    private Map<String, List<PortBinding>> ports;
+    private Map<String, String> labels;
+
+    private ServerEvaluationStrategy strategy;
 
     @BeforeMethod
     public void setUp() {
-
+        strategy = new DefaultServerEvaluationStrategy(null, null);
         serverConfs = new HashMap<>();
-        serverConfs.put("4301/tcp", new ServerConfImpl("sysServer1-tcp", "4301/tcp", "http", "/some/path1"));
-        serverConfs.put("4305/udp", new ServerConfImpl("devSysServer1-udp", "4305/udp", null, "some/path4"));
+        labels = new HashMap<>();
 
-        ports = new HashMap<>();
-        ports.put("4301/tcp", Collections.singletonList(new PortBinding().withHostIp(ALL_IP_ADDRESS )
-                                                                .withHostPort("32100")));
-        ports.put("4305/udp", Collections.singletonList(new PortBinding().withHostIp(ALL_IP_ADDRESS )
-                                                                .withHostPort("32103")));
-
+        when(containerInfo.getConfig()).thenReturn(containerConfig);
         when(containerInfo.getNetworkSettings()).thenReturn(networkSettings);
         when(networkSettings.getGateway()).thenReturn(CONTAINERINFO_GATEWAY);
-        when(networkSettings.getIpAddress()).thenReturn(CONTAINERINFO_IP_ADDRESS);
+        when(containerConfig.getLabels()).thenReturn(labels);
+    }
+
+    private Map<String, List<PortBinding>> getPorts() {
+        Map<String, List<PortBinding>> ports = new HashMap<>();
+        ports.put("8080/tcp", Collections.singletonList(new PortBinding().withHostIp(ALL_IP_ADDRESS)
+                                                                         .withHostPort("32100")));
+        ports.put("9090/udp", Collections.singletonList(new PortBinding().withHostIp(ALL_IP_ADDRESS)
+                                                                         .withHostPort("32101")));
+        return ports;
+    }
+
+    @Test
+    public void shouldReturnServerForEveryExposedPort() throws Exception {
+        // given
+        Map<String, List<PortBinding>> ports = getPorts();
         when(networkSettings.getPorts()).thenReturn(ports);
-        when(containerInfo.getConfig()).thenReturn(containerConfig);
-        when(containerConfig.getLabels()).thenReturn(Collections.emptyMap());
-    }
-
-    /**
-     * Test: che.docker.ip property takes highest precedence for internal address
-     * @throws Exception
-     */
-    @Test
-    public void defaultStrategyShouldUseInternalIpPropertyToOverrideContainerInfo() throws Exception {
-        // given
-        strategy = new DefaultServerEvaluationStrategy(CHE_DOCKER_IP, null);
-
-        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
-                                                                           CHE_DOCKER_IP,
-                                                                           false);
-
-        // when
-        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
-                                                                    null,
-                                                                    serverConfs);
-
-        // then
-        assertEquals(servers, expectedServers);
-    }
-
-    /**
-     * Test: If che.docker.ip is null, containerInfo.getGateway() is used for internal address
-     * @throws Exception
-     */
-    @Test
-    public void defaultStrategyShouldUseContainerInfoWhenInternalIpPropertyIsNull() throws Exception {
-        // given
-        strategy = new DefaultServerEvaluationStrategy(null, null);
-
-        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
-                                                                           CONTAINERINFO_GATEWAY,
-                                                                           false);
-
-        // when
-        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
-                                                                    null,
-                                                                    serverConfs);
-
-        // then
-        assertEquals(servers, expectedServers);
-    }
-
-    /**
-     * Test: If che.docker.ip is null, and containerInfo.getGateway() is null or empty, should use provided
-     *       internalHostname value. Also tests that this value is used for external address in this case.
-     * @throws Exception
-     */
-    @Test
-    public void defaultStrategyShouldUseInternalHostWhenBothIpPropertyAndContainerInfoAreNull() throws Exception {
-        // given
-        strategy = new DefaultServerEvaluationStrategy(null, null);
-        when(networkSettings.getGateway()).thenReturn("");
-
-        final Map<String, ServerImpl> expectedServers = getExpectedServers(DEFAULT_HOSTNAME,
-                                                                           DEFAULT_HOSTNAME,
-                                                                           false);
-
         // when
         final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
                                                                     DEFAULT_HOSTNAME,
                                                                     serverConfs);
+        // then
+        assertEquals(servers.keySet(), ports.keySet());
+    }
+
+    @Test
+    public void shouldAddDefaultReferenceIfReferenceIsNotSet() throws Exception {
+        // given
+        Map<String, List<PortBinding>> ports = getPorts();
+        when(networkSettings.getPorts()).thenReturn(ports);
+
+        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
+        expectedServers.put("8080/tcp", new ServerImpl("Server-8080-tcp",
+                                                       null,
+                                                       CONTAINERINFO_GATEWAY + ":32100",
+                                                       null,
+                                                       new ServerPropertiesImpl(null, CONTAINERINFO_GATEWAY + ":32100", null)));
+        expectedServers.put("9090/udp", new ServerImpl("Server-9090-udp",
+                                                       null,
+                                                       CONTAINERINFO_GATEWAY + ":32101",
+                                                       null,
+                                                       new ServerPropertiesImpl(null, CONTAINERINFO_GATEWAY + ":32101", null)));
+        // when
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo, DEFAULT_HOSTNAME, serverConfs);
 
         // then
         assertEquals(servers, expectedServers);
     }
 
-    /**
-     * Test: If che.docker.ip.external is not null, that should take precedence for external address.
-     * @throws Exception
-     */
     @Test
-    public void defaultStrategyShouldUseExtenalIpPropertyWhenAvailable() throws Exception {
+    public void shouldAddRefUrlProtocolPathToServerFromMachineConfig() throws Exception {
         // given
-        strategy = new DefaultServerEvaluationStrategy(null, CHE_DOCKER_IP_EXTERNAL);
+        Map<String, List<PortBinding>> ports = getPorts();
+        when(networkSettings.getPorts()).thenReturn(ports);
 
-        final Map<String, ServerImpl> expectedServers = getExpectedServers(CHE_DOCKER_IP_EXTERNAL,
-                                                                           CONTAINERINFO_GATEWAY,
-                                                                           false);
+        serverConfs.put("8080/tcp", new ServerConfImpl("myserv1", "8080/tcp", "http", null));
+        serverConfs.put("9090/udp", new ServerConfImpl("myserv2", "9090/udp", "dhcp", "/some/path"));
+
+        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
+        expectedServers.put("8080/tcp", new ServerImpl("myserv1",
+                                                       "http",
+                                                       CONTAINERINFO_GATEWAY  + ":32100",
+                                                       "http://" + CONTAINERINFO_GATEWAY  + ":32100",
+                                                        new ServerPropertiesImpl(null,
+                                                                                 CONTAINERINFO_GATEWAY  + ":32100",
+                                                                                 "http://" + CONTAINERINFO_GATEWAY  + ":32100")));
+        expectedServers.put("9090/udp", new ServerImpl("myserv2",
+                                                       "dhcp",
+                                                       CONTAINERINFO_GATEWAY  + ":32101",
+                                                       "dhcp://" + CONTAINERINFO_GATEWAY  + ":32101/some/path",
+                                                       new ServerPropertiesImpl("/some/path",
+                                                                                CONTAINERINFO_GATEWAY  + ":32101",
+                                                                                "dhcp://" + CONTAINERINFO_GATEWAY  + ":32101/some/path")));
 
         // when
-        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
-                                                                    DEFAULT_HOSTNAME,
-                                                                    serverConfs);
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo, DEFAULT_HOSTNAME, serverConfs);
 
         // then
         assertEquals(servers, expectedServers);
     }
 
-    /**
-     * Test: If che.docker.ip.external is null, should use containerInfo.getGateway()
-     * @throws Exception
-     */
     @Test
-    public void defaultStrategyShouldUseContainerInfoForExternalWhenPropertyIsNull() throws Exception {
+    public void shouldAllowToUsePortFromMachineConfigWithoutTransportProtocol() throws Exception {
         // given
-        strategy = new DefaultServerEvaluationStrategy(null, null);
+        Map<String, List<PortBinding>> ports = getPorts();
+        when(networkSettings.getPorts()).thenReturn(ports);
 
-        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
-                                                                           CONTAINERINFO_GATEWAY,
-                                                                           false);
+        serverConfs.put("8080",     new ServerConfImpl("myserv1", "8080", "http", "/some"));
+        serverConfs.put("9090/udp", new ServerConfImpl("myserv1-tftp", "9090/udp", "tftp", "/path"));
+
+        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
+        expectedServers.put("8080/tcp", new ServerImpl("myserv1",
+                                                       "http",
+                                                       CONTAINERINFO_GATEWAY + ":32100",
+                                                       "http://" + CONTAINERINFO_GATEWAY + ":32100/some",
+                                                       new ServerPropertiesImpl("/some",
+                                                                                CONTAINERINFO_GATEWAY + ":32100",
+                                                                                "http://" + CONTAINERINFO_GATEWAY + ":32100/some")));
+        expectedServers.put("9090/udp", new ServerImpl("myserv1-tftp",
+                                                       "tftp",
+                                                       CONTAINERINFO_GATEWAY  + ":32101",
+                                                       "tftp://" + CONTAINERINFO_GATEWAY  + ":32101/path",
+                                                       new ServerPropertiesImpl("/path",
+                                                                                CONTAINERINFO_GATEWAY  + ":32101",
+                                                                                "tftp://" + CONTAINERINFO_GATEWAY  + ":32101/path")));
 
         // when
-        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
-                                                                    DEFAULT_HOSTNAME,
-                                                                    serverConfs);
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo, DEFAULT_HOSTNAME, serverConfs);
 
         // then
         assertEquals(servers, expectedServers);
     }
 
-    /**
-     * Test: local docker strategy should use internal container address when it can.
-     * @throws Exception
-     */
     @Test
-    public void localDockerStrategyShouldUseContainerIpAddressWhenAvailable() throws Exception {
+    public void shouldAddRefUrlPathToServerFromLabels() throws Exception {
         // given
-        strategy = new LocalDockerServerEvaluationStrategy(null, null);
+        Map<String, List<PortBinding>> ports = getPorts();
+        when(networkSettings.getPorts()).thenReturn(ports);
+        Map<String, String> labels = new HashMap<>();
+        when(containerConfig.getLabels()).thenReturn(labels);
+        ports.put("8080/tcp", Collections.singletonList(new PortBinding().withHostIp(ALL_IP_ADDRESS )
+                                                                         .withHostPort("32100")));
+        ports.put("9090/udp", Collections.singletonList(new PortBinding().withHostIp(ALL_IP_ADDRESS )
+                                                                           .withHostPort("32101")));
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY,      "8080/tcp"), "myserv1");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "8080/tcp"), "http");
+        labels.put(String.format(SERVER_CONF_LABEL_PATH_KEY,     "8080/tcp"), "/some/path");
 
-        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
-                                                                           CONTAINERINFO_IP_ADDRESS,
-                                                                           true);
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "9090/udp"), "dhcp");
+        labels.put(String.format(SERVER_CONF_LABEL_PATH_KEY,     "9090/udp"), "some/path");
+
+        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
+        expectedServers.put("8080/tcp", new ServerImpl("myserv1",
+                                                       "http",
+                                                       CONTAINERINFO_GATEWAY  + ":32100",
+                                                       "http://" + CONTAINERINFO_GATEWAY  + ":32100/some/path",
+                                                       new ServerPropertiesImpl("/some/path",
+                                                                                CONTAINERINFO_GATEWAY  + ":32100",
+                                                                                "http://" + CONTAINERINFO_GATEWAY  + ":32100/some/path")));
+        expectedServers.put("9090/udp", new ServerImpl("Server-9090-udp",
+                                                       "dhcp",
+                                                       CONTAINERINFO_GATEWAY  + ":32101",
+                                                       "dhcp://" + CONTAINERINFO_GATEWAY  + ":32101/some/path",
+                                                       new ServerPropertiesImpl("some/path",
+                                                                                CONTAINERINFO_GATEWAY  + ":32101",
+                                                                                "dhcp://" + CONTAINERINFO_GATEWAY  + ":32101/some/path")));
 
         // when
-        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
-                                                                    DEFAULT_HOSTNAME,
-                                                                    serverConfs);
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo, DEFAULT_HOSTNAME, serverConfs);
 
         // then
         assertEquals(servers, expectedServers);
     }
 
-    /**
-     * Test: local docker strategy should ignore che.docker.ip property.
-     * @throws Exception
-     */
     @Test
-    public void localDockerStrategyShouldIgnoreCheDockerIpProperty() throws Exception {
+    public void shouldAllowToUsePortFromDockerLabelsWithoutTransportProtocol() throws Exception {
         // given
-        strategy = new LocalDockerServerEvaluationStrategy(CHE_DOCKER_IP, null);
+        Map<String, List<PortBinding>> ports = getPorts();
+        when(networkSettings.getPorts()).thenReturn(ports);
 
-        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
-                                                                           CONTAINERINFO_IP_ADDRESS,
-                                                                           true);
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY,      "8080"), "myserv1");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "8080"), "http");
+
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY,      "9090/udp"), "myserv1-tftp");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "9090/udp"), "tftp");
+
+        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
+        expectedServers.put("8080/tcp", new ServerImpl("myserv1",
+                                                       "http",
+                                                       CONTAINERINFO_GATEWAY  + ":32100",
+                                                       "http://" + CONTAINERINFO_GATEWAY  + ":32100",
+                                                       new ServerPropertiesImpl(null,
+                                                                                CONTAINERINFO_GATEWAY  + ":32100",
+                                                                                "http://" + CONTAINERINFO_GATEWAY + ":32100")));
+        expectedServers.put("9090/udp", new ServerImpl("myserv1-tftp",
+                                                       "tftp",
+                                                       CONTAINERINFO_GATEWAY  + ":32101",
+                                                       "tftp://" + CONTAINERINFO_GATEWAY  + ":32101",
+                                                       new ServerPropertiesImpl(null,
+                                                                                CONTAINERINFO_GATEWAY  + ":32101",
+                                                                                "tftp://" + CONTAINERINFO_GATEWAY + ":32101")));
 
         // when
-        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
-                                                                    DEFAULT_HOSTNAME,
-                                                                    serverConfs);
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo, DEFAULT_HOSTNAME, serverConfs);
 
         // then
         assertEquals(servers, expectedServers);
     }
 
-    /**
-     * Test: local docker strategy should use passed parameter internalHost when containerInfo.getIpAddress() is null.
-     * @throws Exception
-     */
     @Test
-    public void localDockerStrategyShouldUseProvidedInternalHostWhenContainerInfoUnavailable() throws Exception {
+    public void shouldPreferMachineConfOverDockerLabels() throws Exception {
         // given
-        strategy = new LocalDockerServerEvaluationStrategy(CHE_DOCKER_IP, null);
-        when(networkSettings.getIpAddress()).thenReturn("");
+        Map<String, List<PortBinding>> ports = getPorts();
+        when(networkSettings.getPorts()).thenReturn(ports);
 
-        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
-                                                                           DEFAULT_HOSTNAME,
-                                                                           false);
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY,      "8080/tcp"), "myserv1label");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "8080/tcp"), "https");
+
+        labels.put(String.format(SERVER_CONF_LABEL_REF_KEY,      "9090/udp"), "myserv2label");
+        labels.put(String.format(SERVER_CONF_LABEL_PROTOCOL_KEY, "9090/udp"), "dhcp");
+        labels.put(String.format(SERVER_CONF_LABEL_PATH_KEY,     "9090/udp"), "/path");
+
+        serverConfs.put("8080/tcp", new ServerConfImpl("myserv1conf", "8080/tcp", "http", null));
+
+        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
+        expectedServers.put("8080/tcp", new ServerImpl("myserv1conf",
+                                                       "http",
+                                                       CONTAINERINFO_GATEWAY  + ":32100",
+                                                       "http://" + CONTAINERINFO_GATEWAY  + ":32100",
+                                                       new ServerPropertiesImpl(null,
+                                                                                CONTAINERINFO_GATEWAY  + ":32100",
+                                                                                "http://" + CONTAINERINFO_GATEWAY + ":32100")));
+        expectedServers.put("9090/udp", new ServerImpl("myserv2label",
+                                                       "dhcp",
+                                                       CONTAINERINFO_GATEWAY  + ":32101",
+                                                       "dhcp://" + CONTAINERINFO_GATEWAY  + ":32101/path",
+                                                       new ServerPropertiesImpl("/path",
+                                                                                CONTAINERINFO_GATEWAY  + ":32101",
+                                                                                "dhcp://" + CONTAINERINFO_GATEWAY + ":32101/path")));
 
         // when
-        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
-                                                                    DEFAULT_HOSTNAME,
-                                                                    serverConfs);
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo, DEFAULT_HOSTNAME, serverConfs);
 
         // then
         assertEquals(servers, expectedServers);
     }
 
-    /**
-     * Test: local docker strategy should let che.docker.ip.external take precedence if available
-     * @throws Exception
-     */
     @Test
-    public void localDockerStrategyShouldUseExternalDockerIpPropertyIfAvailable() throws Exception {
+    public void shouldAddPathCorrectlyWithoutLeadingSlash() throws Exception {
         // given
-        strategy = new LocalDockerServerEvaluationStrategy(CHE_DOCKER_IP, CHE_DOCKER_IP_EXTERNAL);
+        Map<String, List<PortBinding>> ports = getPorts();
+        when(networkSettings.getPorts()).thenReturn(ports);
 
-        final Map<String, ServerImpl> expectedServers = getExpectedServers(CHE_DOCKER_IP_EXTERNAL,
-                                                                           CONTAINERINFO_IP_ADDRESS,
-                                                                           true);
+        serverConfs.put("8080",     new ServerConfImpl("myserv1", "8080", "http", "some"));
+        serverConfs.put("9090/udp", new ServerConfImpl("myserv1-tftp", "9090/udp", "tftp", "some/path"));
+
+        final HashMap<String, ServerImpl> expectedServers = new HashMap<>();
+        expectedServers.put("8080/tcp", new ServerImpl("myserv1",
+                                                       "http",
+                                                       CONTAINERINFO_GATEWAY + ":32100",
+                                                       "http://" + CONTAINERINFO_GATEWAY + ":32100/some",
+                                                       new ServerPropertiesImpl("some",
+                                                                                CONTAINERINFO_GATEWAY + ":32100",
+                                                                                "http://" + CONTAINERINFO_GATEWAY + ":32100/some")));
+        expectedServers.put("9090/udp", new ServerImpl("myserv1-tftp",
+                                                       "tftp",
+                                                       CONTAINERINFO_GATEWAY  + ":32101",
+                                                       "tftp://" + CONTAINERINFO_GATEWAY  + ":32101/some/path",
+                                                       new ServerPropertiesImpl("some/path",
+                                                                                CONTAINERINFO_GATEWAY  + ":32101",
+                                                                                "tftp://" + CONTAINERINFO_GATEWAY  + ":32101/some/path")));
 
         // when
-        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
-                                                                    DEFAULT_HOSTNAME,
-                                                                    serverConfs);
+        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo, DEFAULT_HOSTNAME, serverConfs);
 
         // then
         assertEquals(servers, expectedServers);
-    }
-
-    /**
-     * Test: local docker strategy should use containerInfo for externalHost if property is null
-     * @throws Exception
-     */
-    @Test
-    public void localDockerStrategyShouldUseContainerInfoForExternalWhenPropertyIsNull() throws Exception {
-        // given
-        strategy = new LocalDockerServerEvaluationStrategy(CHE_DOCKER_IP, null);
-
-        final Map<String, ServerImpl> expectedServers = getExpectedServers(CONTAINERINFO_GATEWAY,
-                                                                           CONTAINERINFO_IP_ADDRESS,
-                                                                           true);
-
-        // when
-        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
-                                                                    DEFAULT_HOSTNAME,
-                                                                    serverConfs);
-
-        // then
-        assertEquals(servers, expectedServers);
-    }
-
-    /**
-     * Test: local docker strategy should use containerInfo for externalHost if property is null
-     * @throws Exception
-     */
-    @Test
-    public void localDockerStrategyShouldUseInternalHostWhenContainerInfoIsUnavailable() throws Exception {
-        // given
-        strategy = new LocalDockerServerEvaluationStrategy(CHE_DOCKER_IP, null);
-        when(networkSettings.getGateway()).thenReturn("");
-
-        final Map<String, ServerImpl> expectedServers = getExpectedServers(DEFAULT_HOSTNAME,
-                                                                           CONTAINERINFO_IP_ADDRESS,
-                                                                           true);
-
-        // when
-        final Map<String, ServerImpl> servers = strategy.getServers(containerInfo,
-                                                                    DEFAULT_HOSTNAME,
-                                                                    serverConfs);
-
-        // then
-        assertEquals(servers, expectedServers);
-    }
-
-    private Map<String, ServerImpl> getExpectedServers(String externalAddress,
-                                                       String internalAddress,
-                                                       boolean useExposedPorts) {
-        String port1;
-        String port2;
-        if (useExposedPorts) {
-            port1 = ":4301";
-            port2 = ":4305";
-        } else {
-            port1 = ":32100";
-            port2 = ":32103";
-        }
-        Map<String, ServerImpl> expectedServers = new HashMap<>();
-        expectedServers.put("4301/tcp", new ServerImpl("sysServer1-tcp",
-                "http",
-                externalAddress + ":32100",
-                "http://" + externalAddress + ":32100/some/path1",
-                new ServerPropertiesImpl("/some/path1",
-                                         internalAddress + port1,
-                                         "http://" + internalAddress + port1 + "/some/path1")));
-        expectedServers.put("4305/udp", new ServerImpl("devSysServer1-udp",
-                null,
-                externalAddress + ":32103",
-                null,
-                new ServerPropertiesImpl("some/path4",
-                                         internalAddress + port2,
-                                         null)));
-        return expectedServers;
     }
 }

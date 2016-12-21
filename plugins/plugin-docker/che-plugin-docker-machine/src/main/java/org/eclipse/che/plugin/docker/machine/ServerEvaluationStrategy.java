@@ -162,14 +162,17 @@ public abstract class ServerEvaluationStrategy {
     private ServerConfImpl getServerConfImpl(String portProtocol,
                                              Map<String, String> labels,
                                              Map<String, ServerConfImpl> serverConfMap) {
+        // Label can be specified without protocol -- e.g. 4401 refers to 4401/tcp
+        String port = portProtocol.substring(0, portProtocol.length() - 4);
+
         ServerConfImpl serverConf;
         // provided serverConf map takes precedence
         if (serverConfMap.get(portProtocol) != null) {
             serverConf = serverConfMap.get(portProtocol);
+        } else if (serverConfMap.get(port) != null) {
+            serverConf = serverConfMap.get(port);
         } else {
             String ref, protocol, path;
-            // Label can be specified without protocol -- e.g. 4401 refers to 4401/tcp
-            String port = portProtocol.substring(0, portProtocol.length() - 4);
 
             ref = labels.get(String.format(SERVER_CONF_LABEL_REF_KEY, portProtocol));
             if (ref == null) {
