@@ -13,7 +13,8 @@ package org.eclipse.che.plugin.docker.machine;
 
 import java.util.Map;
 
-import org.eclipse.che.api.core.ServerException;
+import javax.annotation.PostConstruct;
+
 import org.eclipse.che.plugin.docker.machine.local.LocalDockerModule;
 
 import com.google.inject.Inject;
@@ -34,16 +35,25 @@ import com.google.inject.name.Named;
 public class ServerEvaluationStrategyProvider implements Provider<ServerEvaluationStrategy> {
 
     private ServerEvaluationStrategy strategy;
+    private String chosenStrategy;
 
     @Inject
     public ServerEvaluationStrategyProvider(Map<String, ServerEvaluationStrategy> strategies,
-                                            @Named("che.docker.server_evaluation_strategy") String chosenStrategy)
-                                            throws ServerException {
+                                            @Named("che.docker.server_evaluation_strategy") String chosenStrategy) {
         if (strategies.containsKey(chosenStrategy)) {
             this.strategy = strategies.get(chosenStrategy);
         } else {
-            throw new ServerException(String.format("Property che.docker.server_evaluation_strategy=%s "
-                                                  + "does not match provided strategies", chosenStrategy));
+            this.strategy = null;
+        }
+        this.chosenStrategy = chosenStrategy;
+
+    }
+
+    @PostConstruct
+    public void checkStrategy() throws Exception {
+        if (strategy == null) {
+            throw new IllegalStateException(String.format("Property che.docker.server_evaluation_strategy=%s "
+                    + "does not match provided strategies", chosenStrategy));
         }
     }
 
