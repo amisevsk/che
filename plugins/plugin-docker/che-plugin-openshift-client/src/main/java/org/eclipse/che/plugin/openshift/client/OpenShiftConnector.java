@@ -32,6 +32,7 @@ import org.eclipse.che.plugin.docker.client.DockerApiVersionPathPrefixProvider;
 import org.eclipse.che.plugin.docker.client.DockerConnector;
 import org.eclipse.che.plugin.docker.client.DockerConnectorConfiguration;
 import org.eclipse.che.plugin.docker.client.DockerRegistryAuthResolver;
+import org.eclipse.che.plugin.docker.client.ProgressMonitor;
 import org.eclipse.che.plugin.docker.client.connection.DockerConnectionFactory;
 import org.eclipse.che.plugin.docker.client.json.ContainerCreated;
 import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
@@ -42,6 +43,7 @@ import org.eclipse.che.plugin.docker.client.json.network.ContainerInNetwork;
 import org.eclipse.che.plugin.docker.client.json.network.Ipam;
 import org.eclipse.che.plugin.docker.client.json.network.IpamConfig;
 import org.eclipse.che.plugin.docker.client.json.network.Network;
+import org.eclipse.che.plugin.docker.client.params.BuildImageParams;
 import org.eclipse.che.plugin.docker.client.params.CreateContainerParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveContainerParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveNetworkParams;
@@ -363,6 +365,47 @@ public class OpenShiftConnector extends DockerConnector {
                             .withEnableIPv6(false);
     }
 
+    public String buildImage(final BuildImageParams params, final ProgressMonitor progressMonitor) throws IOException {
+
+        // TODO: Implement memory resources?
+        // TODO: Implement docker auth (secrets)
+
+        String name = params.getDockerfile();
+        String repo = params.getRepository();
+        String tag = params.getTag();
+        boolean forcePull = params.isDoForcePull();
+
+        openShiftClient.buildConfigs()
+                       .inNamespace(cheOpenShiftProjectName)
+                       .createNew()
+                       .withNewMetadata()
+                           .withName("che-test-buildconfig")
+                           .withLabels(Collections.emptyMap())
+                           .withAnnotations(Collections.emptyMap())
+                       .endMetadata()
+                       .withNewSpec()
+                           .withServiceAccount(cheOpenShiftServiceAccount)
+                           .withNewSource()
+
+                           .endSource()
+                           .withNewStrategy()
+                               .withType("Docker")
+                               .withNewDockerStrategy()
+                                   .withDockerfilePath(params.getFiles().get(0).getAbsolutePath())
+                               .endDockerStrategy()
+                           .endStrategy()
+                           .withNodeSelector(Collections.emptyMap())
+                           .addNewTrigger()
+                               .withType("ImageChange")
+                           .endTrigger()
+                       .endSpec()
+                       .withNewStatus()
+                           .withLastVersion(Integer.toUnsignedLong(1))
+                       .endStatus()
+                       .done();
+
+        return super.buildImage(params, progressMonitor);
+    }
 
     private Service getCheServiceBySelector(String selectorKey, String selectorValue) {
         ServiceList svcs = openShiftClient.services()
