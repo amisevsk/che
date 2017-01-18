@@ -10,7 +10,9 @@
  *******************************************************************************/
 package org.eclipse.che.plugin.openshift.client;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -28,6 +30,7 @@ import javax.inject.Singleton;
 
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.StringUtils;
+import org.eclipse.che.api.core.util.FileCleaner;
 import org.eclipse.che.plugin.docker.client.DockerApiVersionPathPrefixProvider;
 import org.eclipse.che.plugin.docker.client.DockerConnector;
 import org.eclipse.che.plugin.docker.client.DockerConnectorConfiguration;
@@ -80,6 +83,7 @@ import io.fabric8.kubernetes.api.model.extensions.ReplicaSet;
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSetList;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.ConfigBuilder;
+import io.fabric8.openshift.api.model.BuildConfig;
 import io.fabric8.openshift.client.DefaultOpenShiftClient;
 import io.fabric8.openshift.client.OpenShiftClient;
 
@@ -375,34 +379,56 @@ public class OpenShiftConnector extends DockerConnector {
         String tag = params.getTag();
         boolean forcePull = params.isDoForcePull();
 
-        openShiftClient.buildConfigs()
-                       .inNamespace(cheOpenShiftProjectName)
-                       .createNew()
-                       .withNewMetadata()
-                           .withName("che-test-buildconfig")
-                           .withLabels(Collections.emptyMap())
-                           .withAnnotations(Collections.emptyMap())
-                       .endMetadata()
-                       .withNewSpec()
-                           .withServiceAccount(cheOpenShiftServiceAccount)
-                           .withNewSource()
+        final File tar = Files.createTempFile(null, ".tar").toFile();
+        try {
+            File[] files = new File[params.getFiles().size()];
+            files = params.getFiles().toArray(files);
+            createTarArchive(tar, files);
+            BuildConfig bc = openShiftClient.buildConfigs()
+                    .inNamespace(cheOpenShiftProjectName)
+                    .createNew()
+                    .withNewMetadata()
+                        .withName("che-test-buildconfig")
+                        .withLabels(Collections.emptyMap())
+                        .withAnnotations(Collections.emptyMap())
+                    .endMetadata()
+                    .withNewSpec()
+                        .withServiceAccount(cheOpenShiftServiceAccount)
+                        .withNewSource()
+                            .withType("Binary")
+                            .withContextDir(tar.getPath())
+                            .withNewBinary()
+                                .withAsFile("false")
+                            .endBinary()
+                        .endSource()
+                        .withNewStrategy()
+                            .withType("Docker")
+                            .withNewDockerStrategy()
 
-                           .endSource()
-                           .withNewStrategy()
-                               .withType("Docker")
-                               .withNewDockerStrategy()
-                                   .withDockerfilePath(params.getFiles().get(0).getAbsolutePath())
-                               .endDockerStrategy()
-                           .endStrategy()
-                           .withNodeSelector(Collections.emptyMap())
-                           .addNewTrigger()
-                               .withType("ImageChange")
-                           .endTrigger()
-                       .endSpec()
-                       .withNewStatus()
-                           .withLastVersion(Integer.toUnsignedLong(1))
-                       .endStatus()
-                       .done();
+                            .endDockerStrategy()
+                        .endStrategy()
+                        .withNodeSelector(Collections.emptyMap())
+                        .addNewTrigger()
+                            .withType("ImageChange")
+                        .endTrigger()
+                    .endSpec()
+                    .withNewStatus()
+                        .withLastVersion(Integer.toUnsignedLong(1))
+                    .endStatus()
+                    .done();
+
+            LOG.info(bc.toString());
+
+            openShiftClient.buildConfigs()
+                           .inNamespace(cheOpenShiftProjectName)
+                           .withName("che-test-buildconfig")
+                           .instantiateBinary();
+
+        } finally {
+            FileCleaner.addFile(tar);
+        }
+
+
 
         return super.buildImage(params, progressMonitor);
     }

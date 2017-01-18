@@ -1325,7 +1325,7 @@ public class DockerConnector {
         }
     }
 
-    private void createTarArchive(File tar, File... files) throws IOException {
+    protected void createTarArchive(File tar, File... files) throws IOException {
         TarUtils.tarFiles(tar, 0, files);
     }
 
