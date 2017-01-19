@@ -32,7 +32,10 @@ import org.eclipse.che.plugin.docker.client.DockerApiVersionPathPrefixProvider;
 import org.eclipse.che.plugin.docker.client.DockerConnector;
 import org.eclipse.che.plugin.docker.client.DockerConnectorConfiguration;
 import org.eclipse.che.plugin.docker.client.DockerRegistryAuthResolver;
+import org.eclipse.che.plugin.docker.client.ProgressMonitor;
 import org.eclipse.che.plugin.docker.client.connection.DockerConnectionFactory;
+import org.eclipse.che.plugin.docker.client.dto.AuthConfigs;
+import org.eclipse.che.plugin.docker.client.exception.ImageNotFoundException;
 import org.eclipse.che.plugin.docker.client.json.ContainerCreated;
 import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
 import org.eclipse.che.plugin.docker.client.json.ImageConfig;
@@ -43,9 +46,11 @@ import org.eclipse.che.plugin.docker.client.json.network.Ipam;
 import org.eclipse.che.plugin.docker.client.json.network.IpamConfig;
 import org.eclipse.che.plugin.docker.client.json.network.Network;
 import org.eclipse.che.plugin.docker.client.params.CreateContainerParams;
+import org.eclipse.che.plugin.docker.client.params.PullParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveContainerParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveNetworkParams;
 import org.eclipse.che.plugin.docker.client.params.StartContainerParams;
+import org.eclipse.che.plugin.docker.client.params.TagParams;
 import org.eclipse.che.plugin.docker.client.params.network.ConnectContainerToNetworkParams;
 import org.eclipse.che.plugin.docker.client.params.network.CreateNetworkParams;
 import org.eclipse.che.plugin.docker.client.params.network.DisconnectContainerFromNetworkParams;
@@ -78,6 +83,8 @@ import io.fabric8.kubernetes.api.model.extensions.ReplicaSet;
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSetList;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.ConfigBuilder;
+import io.fabric8.openshift.api.model.ImageStream;
+import io.fabric8.openshift.api.model.ImageStreamTag;
 import io.fabric8.openshift.client.DefaultOpenShiftClient;
 import io.fabric8.openshift.client.OpenShiftClient;
 
@@ -363,6 +370,73 @@ public class OpenShiftConnector extends DockerConnector {
                             .withEnableIPv6(false);
     }
 
+    /**
+     * Pulls docker image from registry.
+    *
+    * @param progressMonitor
+    *         ProgressMonitor for images creation process
+    * @throws IOException
+    *          when a problem occurs with docker api calls
+    */
+   public void pull(final PullParams params, final ProgressMonitor progressMonitor) throws IOException {
+       AuthConfigs authConfigs = params.getAuthConfigs();
+       String      repo        = params.getFullRepo();
+       String      image       = params.getImage();
+       String      registry    = params.getRegistry();
+       String      tag         = params.getTag();
+       String      imageName   = params.getImage().split("/")[1];
+
+       ImageStream imageStream = openShiftClient.imageStreams()
+                                                .inNamespace(cheOpenShiftProjectName)
+                                                .createOrReplaceWithNew()
+                                                .withNewMetadata()
+                                                    .withName(imageName)
+                                                .endMetadata()
+                                                .withNewSpec()
+                                                    .addNewTag()
+                                                        .withName(tag)
+                                                    .endTag()
+                                                    .withDockerImageRepository(repo)
+                                                .endSpec()
+                                                .withNewStatus().withDockerImageRepository("").endStatus()
+                                                .done();
+
+       LOG.info("ImageStream created: " + imageStream.toString());
+
+//       super.pull(params, progressMonitor);
+   }
+
+   /**
+    * Tag the docker image into a repository.
+    *
+    * @throws ImageNotFoundException
+    *         when docker api return 404 status
+    * @throws IOException
+    *         when a problem occurs with docker api calls
+    */
+   public void tag(final TagParams params) throws ImageNotFoundException,
+                                                  IOException {
+       String image = params.getImage();
+       String repo  = params.getRepository();
+       String tag   = params.getTag();
+//
+//       ImageStreamTag ist = openShiftClient.imageStreamTags()
+//                                           .createNew()
+//                                           .withNewMetadata()
+//                                           .withName(repo.split("/")[1])
+//                                           .and()
+//                                           .withNewTag()
+//                                           .withNewFrom()
+//                                           .withKind("ImageStream")
+//                                           .withName(image.split("/")[1])
+//                                           .and()
+//                                           .and()
+//                                           .done();
+//
+//       LOG.info("ImageStreamTag    " + ist.toString());
+
+//       super.tag(params);
+   }
 
     private Service getCheServiceBySelector(String selectorKey, String selectorValue) {
         ServiceList svcs = openShiftClient.services()
