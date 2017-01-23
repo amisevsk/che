@@ -39,6 +39,7 @@ import org.eclipse.che.plugin.docker.client.exception.ImageNotFoundException;
 import org.eclipse.che.plugin.docker.client.json.ContainerCreated;
 import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
 import org.eclipse.che.plugin.docker.client.json.ImageConfig;
+import org.eclipse.che.plugin.docker.client.json.ImageInfo;
 import org.eclipse.che.plugin.docker.client.json.NetworkCreated;
 import org.eclipse.che.plugin.docker.client.json.PortBinding;
 import org.eclipse.che.plugin.docker.client.json.network.ContainerInNetwork;
@@ -46,6 +47,7 @@ import org.eclipse.che.plugin.docker.client.json.network.Ipam;
 import org.eclipse.che.plugin.docker.client.json.network.IpamConfig;
 import org.eclipse.che.plugin.docker.client.json.network.Network;
 import org.eclipse.che.plugin.docker.client.params.CreateContainerParams;
+import org.eclipse.che.plugin.docker.client.params.InspectImageParams;
 import org.eclipse.che.plugin.docker.client.params.PullParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveContainerParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveNetworkParams;
@@ -161,10 +163,10 @@ public class OpenShiftConnector extends DockerConnector {
         workspaceID = workspaceID.isEmpty() ? generateWorkspaceID() : workspaceID;
         String imageName = createContainerParams.getContainerConfig().getImage();
         Set<String> containerExposedPorts = createContainerParams.getContainerConfig().getExposedPorts().keySet();
-        Set<String> imageExposedPorts = inspectImage(imageName).getConfig().getExposedPorts().keySet();
+//        Set<String> imageExposedPorts = inspectImage(imageName).getConfig().getExposedPorts().keySet();
         Set<String> exposedPorts = new HashSet<>();
         exposedPorts.addAll(containerExposedPorts);
-        exposedPorts.addAll(imageExposedPorts);
+//        exposedPorts.addAll(imageExposedPorts);
 
         boolean runContainerAsRoot = runContainerAsRoot(imageName);
 
@@ -407,6 +409,20 @@ public class OpenShiftConnector extends DockerConnector {
    }
 
    /**
+    * Gets detailed information about docker image.
+    *
+    * @return detailed information about {@code image}
+    * @throws IOException
+    *          when a problem occurs with docker api calls
+    */
+   public ImageInfo inspectImage(InspectImageParams params) throws IOException {
+
+//       openShiftClient.imageStreams().
+
+       return new ImageInfo();
+   }
+
+   /**
     * Tag the docker image into a repository.
     *
     * @throws ImageNotFoundException
@@ -419,21 +435,23 @@ public class OpenShiftConnector extends DockerConnector {
        String image = params.getImage();
        String repo  = params.getRepository();
        String tag   = params.getTag();
-//
-//       ImageStreamTag ist = openShiftClient.imageStreamTags()
-//                                           .createNew()
-//                                           .withNewMetadata()
-//                                           .withName(repo.split("/")[1])
-//                                           .and()
-//                                           .withNewTag()
-//                                           .withNewFrom()
-//                                           .withKind("ImageStream")
-//                                           .withName(image.split("/")[1])
-//                                           .and()
-//                                           .and()
-//                                           .done();
-//
-//       LOG.info("ImageStreamTag    " + ist.toString());
+
+       String name  = repo.split("/")[1] + ":" + "latest";
+
+       ImageStreamTag ist = openShiftClient.imageStreamTags()
+                                           .createNew()
+                                           .withNewMetadata()
+                                           .withName(name)
+                                           .and()
+                                           .withNewTag()
+                                           .withNewFrom()
+                                           .withKind("ImageStreamTag")
+                                           .withName(image.split("/")[1])
+                                           .and()
+                                           .and()
+                                           .done();
+
+       LOG.info("ImageStreamTag    " + ist.toString());
 
 //       super.tag(params);
    }
@@ -784,8 +802,9 @@ public class OpenShiftConnector extends DockerConnector {
      * @throws IOException
      */
     private boolean runContainerAsRoot(final String imageName) throws IOException {
-        String user = inspectImage(imageName).getConfig().getUser();
-        return user != null && user.isEmpty();
+//        String user = inspectImage(imageName).getConfig().getUser();
+//        return user != null && user.isEmpty();
+        return true;
     }
 
     /**
