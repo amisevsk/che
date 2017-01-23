@@ -32,10 +32,14 @@ import org.eclipse.che.plugin.docker.client.DockerApiVersionPathPrefixProvider;
 import org.eclipse.che.plugin.docker.client.DockerConnector;
 import org.eclipse.che.plugin.docker.client.DockerConnectorConfiguration;
 import org.eclipse.che.plugin.docker.client.DockerRegistryAuthResolver;
+import org.eclipse.che.plugin.docker.client.ProgressMonitor;
 import org.eclipse.che.plugin.docker.client.connection.DockerConnectionFactory;
+import org.eclipse.che.plugin.docker.client.exception.DockerException;
+import org.eclipse.che.plugin.docker.client.exception.ImageNotFoundException;
 import org.eclipse.che.plugin.docker.client.json.ContainerCreated;
 import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
 import org.eclipse.che.plugin.docker.client.json.ImageConfig;
+import org.eclipse.che.plugin.docker.client.json.ImageInfo;
 import org.eclipse.che.plugin.docker.client.json.NetworkCreated;
 import org.eclipse.che.plugin.docker.client.json.PortBinding;
 import org.eclipse.che.plugin.docker.client.json.network.ContainerInNetwork;
@@ -43,9 +47,13 @@ import org.eclipse.che.plugin.docker.client.json.network.Ipam;
 import org.eclipse.che.plugin.docker.client.json.network.IpamConfig;
 import org.eclipse.che.plugin.docker.client.json.network.Network;
 import org.eclipse.che.plugin.docker.client.params.CreateContainerParams;
+import org.eclipse.che.plugin.docker.client.params.InspectImageParams;
+import org.eclipse.che.plugin.docker.client.params.PullParams;
+import org.eclipse.che.plugin.docker.client.params.PushParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveContainerParams;
 import org.eclipse.che.plugin.docker.client.params.RemoveNetworkParams;
 import org.eclipse.che.plugin.docker.client.params.StartContainerParams;
+import org.eclipse.che.plugin.docker.client.params.TagParams;
 import org.eclipse.che.plugin.docker.client.params.network.ConnectContainerToNetworkParams;
 import org.eclipse.che.plugin.docker.client.params.network.CreateNetworkParams;
 import org.eclipse.che.plugin.docker.client.params.network.DisconnectContainerFromNetworkParams;
@@ -55,8 +63,13 @@ import org.eclipse.che.plugin.openshift.client.kubernetes.KubernetesContainer;
 import org.eclipse.che.plugin.openshift.client.kubernetes.KubernetesEnvVar;
 import org.eclipse.che.plugin.openshift.client.kubernetes.KubernetesLabelConverter;
 import org.eclipse.che.plugin.openshift.client.kubernetes.KubernetesService;
+import org.eclipse.che.plugin.openshift.client.kubernetes.KubernetesStringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
@@ -79,6 +92,7 @@ import io.fabric8.kubernetes.api.model.extensions.ReplicaSet;
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSetList;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.ConfigBuilder;
+import io.fabric8.openshift.api.model.ImageStreamTag;
 import io.fabric8.openshift.client.DefaultOpenShiftClient;
 import io.fabric8.openshift.client.OpenShiftClient;
 
@@ -110,7 +124,7 @@ public class OpenShiftConnector extends DockerConnector {
     private static final String OPENSHIFT_IMAGE_PULL_POLICY_IFNOTPRESENT = "IfNotPresent";
     private static final Long UID_ROOT                                   = Long.valueOf(0);
     private static final Long UID_USER                                   = Long.valueOf(1000);
-
+    
     private final OpenShiftClient          openShiftClient;
     private final KubernetesLabelConverter kubernetesLabelConverter;
     private final KubernetesEnvVar         kubernetesEnvVar;
@@ -118,6 +132,13 @@ public class OpenShiftConnector extends DockerConnector {
     private final KubernetesService        kubernetesService;
     private final String                   openShiftCheProjectName;
     private final String                   openShiftCheServiceAccount;
+    private final String                   CHE_OPENSHIFT_INTERNAL_REGISTRY_ADDRESS;
+
+    // TODO: use super's GSON
+    private static final Gson GSON = new GsonBuilder().disableHtmlEscaping()
+                                                      .setFieldNamingPolicy(FieldNamingPolicy.UPPER_CAMEL_CASE)
+                                                      .create();
+
 
     @Inject
     public OpenShiftConnector(DockerConnectorConfiguration connectorConfiguration,
@@ -132,7 +153,9 @@ public class OpenShiftConnector extends DockerConnector {
                               @Named("che.openshift.username") String openShiftUserName,
                               @Named("che.openshift.password") String openShiftUserPassword,
                               @Named("che.openshift.project") String openShiftCheProjectName,
-                              @Named("che.openshift.serviceaccountname") String openShiftCheServiceAccount) {
+                              @Named("che.openshift.serviceaccountname") String openShiftCheServiceAccount,
+                              @Named("che.openshift.registry.ip") String registryIp,
+                              @Named("che.openshift.registry.port") String registryPort) {
         super(connectorConfiguration, connectionFactory, authResolver, dockerApiVersionPathPrefixProvider);
         this.openShiftCheProjectName = openShiftCheProjectName;
         this.openShiftCheServiceAccount = openShiftCheServiceAccount;
@@ -145,6 +168,8 @@ public class OpenShiftConnector extends DockerConnector {
                 .withUsername(openShiftUserName)
                 .withPassword(openShiftUserPassword).build();
         this.openShiftClient = new DefaultOpenShiftClient(config);
+        
+        CHE_OPENSHIFT_INTERNAL_REGISTRY_ADDRESS = registryIp + ":" + registryPort;
     }
 
     /**
@@ -154,17 +179,31 @@ public class OpenShiftConnector extends DockerConnector {
      */
     @Override
     public ContainerCreated createContainer(CreateContainerParams createContainerParams) throws IOException {
-        String containerName = getNormalizedContainerName(createContainerParams);
+        // TODO: is it necessary to trim the name here?
+        String containerName = KubernetesStringUtils.getNormalizedString(createContainerParams.getContainerName(), 9);
+        containerName = containerName.replaceAll("_", "-");
+        // TODO: improve this method
         String workspaceID = getCheWorkspaceId(createContainerParams);
+
         // Generate workspaceID if CHE_WORKSPACE_ID env var does not exist
         workspaceID = workspaceID.isEmpty() ? generateWorkspaceID() : workspaceID;
-        String imageName = createContainerParams.getContainerConfig().getImage();
+
+        // TODO: documentation
+        String imageForDocker = createContainerParams.getContainerConfig().getImage();
+        String imageStreamTagName = KubernetesStringUtils.getTagNameFromRepoString(imageForDocker);
+
+        ImageStreamTag imageStreamTag = getImageStreamTagFromRepo(imageStreamTagName);
+        String imageStreamTagPullSpec = imageStreamTag.getMetadata().getName();
+
+        String dockerPullSpec = String.format("%s/%s/%s", CHE_OPENSHIFT_INTERNAL_REGISTRY_ADDRESS,
+                                                          openShiftCheProjectName,
+                                                          imageStreamTagPullSpec);
 
         Set<String> containerExposedPorts = createContainerParams.getContainerConfig().getExposedPorts().keySet();
-        Set<String> imageExposedPorts = inspectImage(imageName).getConfig().getExposedPorts().keySet();
+        Set<String> imageExposedPorts = inspectImage(imageForDocker).getConfig().getExposedPorts().keySet();
         Set<String> exposedPorts = getExposedPorts(containerExposedPorts, imageExposedPorts);
 
-        boolean runContainerAsRoot = runContainerAsRoot(imageName);
+        boolean runContainerAsRoot = runContainerAsRoot(imageForDocker);
 
         String[] envVariables = createContainerParams.getContainerConfig().getEnv();
         String[] volumes = createContainerParams.getContainerConfig().getHostConfig().getBinds();
@@ -172,7 +211,7 @@ public class OpenShiftConnector extends DockerConnector {
         Map<String, String> additionalLabels = createContainerParams.getContainerConfig().getLabels();
         createOpenShiftService(workspaceID, exposedPorts, additionalLabels);
         String deploymentName = createOpenShiftDeployment(workspaceID,
-                                                          imageName,
+                                                          dockerPullSpec,
                                                           containerName,
                                                           exposedPorts,
                                                           envVariables,
@@ -365,6 +404,183 @@ public class OpenShiftConnector extends DockerConnector {
                             .withEnableIPv6(false);
     }
 
+    public void pull(final PullParams params, final ProgressMonitor progressMonitor) throws IOException {
+//        // TODO: Deal with AuthConfigs
+//        AuthConfigs authConfigs = params.getAuthConfigs();
+//        String repo = params.getFullRepo();     // image to be pulled
+//        String image = params.getImage();       // matches repo; TODO: double check
+//        String registry = params.getRegistry(); // always null?
+//        String tag = params.getTag();           // e.g. latest, usually
+//
+//        String imageStreamName = KubernetesStringUtils.getImageStreamName(repo);
+//
+//        ImageStream imageStream = openShiftClient.imageStreams()
+//                                                 .inNamespace(cheOpenShiftProjectName)
+//                                                 .createOrReplaceWithNew()
+//                                                 .withNewMetadata()
+//                                                     .withName(imageStreamName) // imagestream id
+//                                                 .endMetadata()
+//                                                 .withNewSpec()
+//                                                     .addNewTag()
+//                                                         .withName(tag)
+//                                                     .endTag()
+//                                                     .withDockerImageRepository(repo) // tracking
+//                                                 .endSpec()
+//                                                 .withNewStatus()
+//                                                     .withDockerImageRepository("")
+//                                                 .endStatus()
+//                                                 .done();
+//
+//        try {
+//            Thread.sleep(3000);
+//        } catch (InterruptedException e) {
+//            // TODO Auto-generated catch block TEST
+//            e.printStackTrace();
+//        }
+//        LOG.info("ImageStream Created: " + imageStream);
+    }
+
+    /**
+     * Creates an ImageStreamTag that tracks a given image.
+     *
+     * TODO: improve this documentation.
+     * <p>
+     * The target is usually specified e.g. eclipse-che/workspace<unique string>.
+     * ImageStreamTags are labelled as <registry>/<namespace>/<ImageStream>:<tag>
+     * The ImageStream name must be unique to the source image (e.g. eclipse_ubuntu_jdk8)
+     * otherwise the sourceImage for this ImageStream will be overwritten when
+     * another Stack is used. This leaves only the tag to hold the new image name.
+     */
+    public void tag(final TagParams params) throws ImageNotFoundException, IOException {
+        // E.g. `docker tag oldImageRepo newImageRepo`
+        String sourceImage = params.getImage();        // e.g. eclipse/ubuntu_jdk8
+        String targetImage = params.getRepository();   // e.g. eclipse-che/<identifier>
+        String tag = params.getTag();
+        if (tag == null || tag.isEmpty()) {
+            tag = "latest";
+        }
+
+        String sourceImageWithTag = String.format("%s:%s", sourceImage, tag);
+
+        String newImageStreamName = KubernetesStringUtils.getImageStreamTagName(sourceImage, targetImage);
+//        newImageStreamName = "172.30.128.31:5000/eclipse-che/" + newImageStreamName;
+
+        ImageStreamTag imageStreamTag = openShiftClient.imageStreamTags()
+                                                       .inNamespace(openShiftCheProjectName)
+                                                       .createOrReplaceWithNew()
+                                                       .withNewMetadata()
+                                                           .withName(newImageStreamName)
+                                                       .endMetadata()
+                                                       .withNewTag()
+                                                           .withNewFrom()
+                                                               .withKind("DockerImage")
+                                                               .withName(sourceImageWithTag)
+                                                           .endFrom()
+                                                       .endTag()
+                                                       .done();
+
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block TEST
+            e.printStackTrace();
+        }
+
+        LOG.info("ImageStreamTag created : " + imageStreamTag);
+    }
+
+
+    /**
+     * Gets detailed information about docker image.
+     *
+     * @return detailed information about {@code image}
+     * @throws IOException
+     *          when a problem occurs with docker api calls
+     */
+    public ImageInfo inspectImage(InspectImageParams params) throws IOException {
+
+        String image = params.getImage();
+        String imageStreamTagName = KubernetesStringUtils.getTagNameFromRepoString(image);
+        if (imageStreamTagName.contains(":")) { // Image to inspect passed in with tag, which we don't support
+            imageStreamTagName.replaceAll(":.*", "");
+        }
+
+        ImageStreamTag imageStreamTag = getImageStreamTagFromRepo(imageStreamTagName);
+
+        // TODO: GSON does not work due to mixed case in string.
+        String dockerImageConfig = imageStreamTag.getImage().getDockerImageConfig();
+        ImageInfo info = GSON.fromJson(dockerImageConfig.replaceFirst("config", "Config"), ImageInfo.class);
+
+        LOG.info("ImageInfo : " + info.toString());
+
+        return info;
+    }
+
+    private ImageStreamTag getImageStreamTagFromRepo(String imageStreamTagName) throws IOException {
+
+        LOG.info("Trying to get ImageStreamTag: " + imageStreamTagName);
+        String imageTagTrimmed = imageStreamTagName.length() > 30 ? imageStreamTagName.substring(0, 30)
+                                                                  : imageStreamTagName;
+        
+        // It would be better if this search could be done by label, but ImageStreamTags do not seem
+        // to support labels (always null)
+        List<ImageStreamTag> imageStreams = openShiftClient.imageStreamTags()
+                                                           .inNamespace(openShiftCheProjectName)
+                                                           .list()
+                                                           .getItems();
+
+        // We only get ImageStreamTag names here, since these ImageStreamTags do not include
+        // Docker metadata, for some reason.
+        List<String> imageStreamTags = imageStreams.stream()
+                                                   .filter(e -> e.getMetadata()
+                                                                 .getName()
+                                                                 .contains(imageTagTrimmed))
+                                                   .map(e -> e.getMetadata().getName())
+                                                   .collect(Collectors.toList());
+
+        // Should only be one result
+        if (imageStreamTags.size() != 1) {
+            throw new DockerException(String.format("ImageStreamTag %s not found!", imageStreamTagName), 1);
+        }
+
+        String imageStreamTag = imageStreamTags.get(0);
+
+        // Finally, get the ImageStreamTag, with Docker metadata.
+        return openShiftClient.imageStreamTags()
+                              .inNamespace(openShiftCheProjectName)
+                              .withName(imageStreamTag)
+                              .get();
+    }
+
+
+    /**
+     * Push docker image to the registry.
+     *
+     * @param progressMonitor
+     *         ProgressMonitor for images pushing process
+     * @return digest of just pushed image
+     * @throws IOException
+     *          when a problem occurs with docker api calls
+     */
+    public String push(final PushParams params, final ProgressMonitor progressMonitor) throws IOException {
+        //TODO
+        LOG.error("Tried to push, this isn't implemented");
+        return "";
+    }
+
+//    /**
+//     * Removes docker image.
+//     *
+//     * @throws IOException
+//     *          when a problem occurs with docker api calls
+//     */
+//    public void removeImage(final RemoveImageParams params) throws IOException {
+//        String image = params.getImage();
+//        String imageStreamTagName = KubernetesStringUtils.getImageNameFromRepoString(image);
+//        ImageStreamTag imageStreamTag = getImageStreamTagFromRepo(imageStreamTagName);
+//
+//        openShiftClient.imageStreamTags().inNamespace(cheOpenShiftProjectName).delete(imageStreamTag);
+//    }
 
     private Service getCheServiceBySelector(String selectorKey, String selectorValue) {
         ServiceList svcs = openShiftClient.services()
@@ -437,20 +653,20 @@ public class OpenShiftConnector extends DockerConnector {
         return items.get(0);
     }
 
-    private String getNormalizedContainerName(CreateContainerParams createContainerParams) {
-        String containerName = createContainerParams.getContainerName();
-        // The name of a container in Kubernetes should be a
-        // valid hostname as specified by RFC 1123 (i.e. max length
-        // of 63 chars and no underscores)
-        return containerName.substring(9).replace('_', '-');
-    }
+//    private String getNormalizedContainerName(CreateContainerParams createContainerParams) {
+//        String containerName = createContainerParams.getContainerName();
+//        // The name of a container in Kubernetes should be a
+//        // valid hostname as specified by RFC 1123 (i.e. max length
+//        // of 63 chars and no underscores)
+//        return containerName.substring(9).replace('_', '-');
+//    }
 
     protected String getCheWorkspaceId(CreateContainerParams createContainerParams) {
         Stream<String> env = Arrays.stream(createContainerParams.getContainerConfig().getEnv());
-        String workspaceID = env.filter(v -> v.startsWith(CHE_WORKSPACE_ID_ENV_VAR) && v.contains("=")).
-                                 map(v -> v.split("=",2)[1]).
-                                 findFirst().
-                                 orElse("");
+        String workspaceID = env.filter(v -> v.startsWith(CHE_WORKSPACE_ID_ENV_VAR) && v.contains("="))
+                                .map(v -> v.split("=",2)[1])
+                                .findFirst()
+                                .orElse("");
         return workspaceID.replaceFirst("workspace","");
     }
 
