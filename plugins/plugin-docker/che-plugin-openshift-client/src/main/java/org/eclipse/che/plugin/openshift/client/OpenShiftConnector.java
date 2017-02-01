@@ -37,12 +37,15 @@ import org.eclipse.che.plugin.docker.client.ProgressMonitor;
 import org.eclipse.che.plugin.docker.client.connection.DockerConnectionFactory;
 import org.eclipse.che.plugin.docker.client.exception.DockerException;
 import org.eclipse.che.plugin.docker.client.exception.ImageNotFoundException;
+import org.eclipse.che.plugin.docker.client.json.ContainerConfig;
 import org.eclipse.che.plugin.docker.client.json.ContainerCreated;
 import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
 import org.eclipse.che.plugin.docker.client.json.ContainerListEntry;
+import org.eclipse.che.plugin.docker.client.json.HostConfig;
 import org.eclipse.che.plugin.docker.client.json.ImageConfig;
 import org.eclipse.che.plugin.docker.client.json.ImageInfo;
 import org.eclipse.che.plugin.docker.client.json.NetworkCreated;
+import org.eclipse.che.plugin.docker.client.json.NetworkSettings;
 import org.eclipse.che.plugin.docker.client.json.PortBinding;
 import org.eclipse.che.plugin.docker.client.json.network.ContainerInNetwork;
 import org.eclipse.che.plugin.docker.client.json.network.Ipam;
@@ -269,17 +272,18 @@ public class OpenShiftConnector extends DockerConnector {
      */
     @Override
     public ContainerInfo inspectContainer(String container) throws IOException {
-        // Proxy to DockerConnector
-        ContainerInfo info = super.inspectContainer(container);
-        if (info == null) {
+
+        Pod pod = getChePodByContainerId(container);
+        if (pod == null ) {
+            LOG.warn("No Pod found by container ID {}", container);
             return null;
         }
 
-        Pod pod = getChePodByContainerId(info.getId());
-        if (pod == null ) {
-            LOG.warn("No Pod found by container ID {}", info.getId());
-            return null;
-        }
+        String podPullSpec = pod.getSpec().getContainers().get(0).getImage();
+        String tagName = KubernetesStringUtils.getTagNameFromPullSpec(podPullSpec);
+
+        ImageStreamTag tag = getImageStreamTagFromRepo(tagName);
+        ImageInfo imageInfo = getImageInfoFromTag(tag);
 
         String deploymentName = pod.getMetadata().getLabels().get(OPENSHIFT_DEPLOYMENT_LABEL);
         if (deploymentName == null ) {
@@ -293,20 +297,100 @@ public class OpenShiftConnector extends DockerConnector {
             return null;
         }
 
-        Map<String, String> annotations = KubernetesLabelConverter.namesToLabels(svc.getMetadata().getAnnotations());
-        Map<String, String> containerLabels = info.getConfig().getLabels();
+        ContainerInfo info = super.inspectContainer(container);
 
+        return createContainerInfo(svc, imageInfo);
+//        // Proxy to DockerConnector
+//        ContainerInfo info = super.inspectContainer(container);
+//        if (info == null) {
+//            return null;
+//        }
+//
+//        Pod pod = getChePodByContainerId(info.getId());
+//        if (pod == null ) {
+//            LOG.warn("No Pod found by container ID {}", info.getId());
+//            return null;
+//        }
+//
+//        String deploymentName = pod.getMetadata().getLabels().get(OPENSHIFT_DEPLOYMENT_LABEL);
+//        if (deploymentName == null ) {
+//            LOG.warn("No label {} found for Pod {}", OPENSHIFT_DEPLOYMENT_LABEL, pod.getMetadata().getName());
+//            return null;
+//        }
+//
+//        Service svc = getCheServiceBySelector(OPENSHIFT_DEPLOYMENT_LABEL, deploymentName);
+//        if (svc == null) {
+//            LOG.warn("No Service found by selector {}={}", OPENSHIFT_DEPLOYMENT_LABEL, deploymentName);
+//            return null;
+//        }
+//
+//        Map<String, String> annotations = KubernetesLabelConverter.namesToLabels(svc.getMetadata().getAnnotations());
+//        Map<String, String> containerLabels = info.getConfig().getLabels();
+//
+//        Map<String, String> labels = Stream.concat(annotations.entrySet().stream(), containerLabels.entrySet().stream())
+//                                           .filter(e -> e.getKey().startsWith(KubernetesLabelConverter.getCheServerLabelPrefix()))
+//                                           .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
+//
+//        info.getConfig().setLabels(labels);
+//
+//        LOG.info("Container labels:");
+//        info.getConfig().getLabels().entrySet()
+//                        .stream().forEach(e -> LOG.info("- {}={}", e.getKey(), e.getValue()));
+//
+//        replaceNetworkSettings(info);
+//
+//        return info;
+    }
+
+    private ContainerInfo createContainerInfo(Service svc, ImageInfo imageInfo) {
+
+        // HostConfig
+        HostConfig hostConfig = new HostConfig();
+        String[] binds = null;
+        long memory = imageInfo.getConfig().getMemory();
+        hostConfig.setBinds(binds);
+        hostConfig.setMemory(memory);;
+
+        // ContainerConfig
+        ContainerConfig config = new ContainerConfig();
+        String[] env = imageInfo.getConfig().getEnv();
+        String image = imageInfo.getConfig().getImage();
+
+        Map<String, Map<String, String>> exposedPorts = null;
+
+        Map<String, String> annotations = KubernetesLabelConverter.namesToLabels(svc.getMetadata().getAnnotations());
+        Map<String, String> containerLabels = imageInfo.getConfig().getLabels();
         Map<String, String> labels = Stream.concat(annotations.entrySet().stream(), containerLabels.entrySet().stream())
                                            .filter(e -> e.getKey().startsWith(KubernetesLabelConverter.getCheServerLabelPrefix()))
                                            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
 
-        info.getConfig().setLabels(labels);
+        config.setHostConfig(hostConfig);
+        config.setEnv(env);
+        config.setImage(image);
+        config.setExposedPorts(exposedPorts);
+        config.setLabels(labels);
 
-        LOG.info("Container labels:");
-        info.getConfig().getLabels().entrySet()
-                        .stream().forEach(e -> LOG.info("- {}={}", e.getKey(), e.getValue()));
+        // NetworkSettings
+        NetworkSettings networkSettings = new NetworkSettings();
+        String ipAddress = null;
+        String gateway = null;
+        Map<String, List<PortBinding>> ports = getCheServicePorts(svc);
+        networkSettings.setIpAddress(ipAddress);
+        networkSettings.setGateway(gateway);
+        networkSettings.setPorts(ports);
+        ContainerInfo info = new ContainerInfo();
+        info.setConfig(config);
+        info.setNetworkSettings(networkSettings);
+        return info;
+    }
 
-        replaceNetworkSettings(info);
+    public ImageInfo getImageInfoFromTag(ImageStreamTag imageStreamTag) {
+        // The DockerImageConfig string here is the JSON that would be returned by a docker inspect,
+        // except that the capitalization is inconsistent, breaking deserialization. Top level elements
+        // are lowercased, while nested elements conform to FieldNamingPolicy.UPPER_CAMEL_CASE.
+        // We're only converting the config field for brevity; this means that other fields are null.
+        String dockerImageConfig = imageStreamTag.getImage().getDockerImageConfig();
+        ImageInfo info = GSON.fromJson(dockerImageConfig.replaceFirst("config", "Config"), ImageInfo.class);
 
         return info;
     }
@@ -568,14 +652,7 @@ public class OpenShiftConnector extends DockerConnector {
 
         ImageStreamTag imageStreamTag = getImageStreamTagFromRepo(imageStreamTagName);
 
-        // The DockerImageConfig string here is the JSON that would be returned by a docker inspect,
-        // except that the capitalization is inconsistent, breaking deserialization. Top level elements
-        // are lowercased, while nested elements conform to FieldNamingPolicy.UPPER_CAMEL_CASE.
-        // We're only converting the config field for brevity; this means that other fields are null.
-        String dockerImageConfig = imageStreamTag.getImage().getDockerImageConfig();
-        ImageInfo info = GSON.fromJson(dockerImageConfig.replaceFirst("config", "Config"), ImageInfo.class);
-
-        return info;
+        return getImageInfoFromTag(imageStreamTag);
     }
 
     /**

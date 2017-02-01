@@ -87,7 +87,8 @@ public final class KubernetesStringUtils {
     public static String getTagNameFromRepoString(String repo) {
         String name;
         if (repo.contains("/")) {
-            name = repo.split("/")[1];
+            String[] nameSegments = repo.split("/");
+            name = nameSegments[nameSegments.length - 1];
         } else {
             name = repo;
         }
@@ -118,5 +119,13 @@ public final class KubernetesStringUtils {
         String tag = getTagNameFromRepoString(newRepository);
         String repo = getImageStreamName(oldRepository);
         return getNormalizedString(String.format("%s:%s", repo, tag));
+    }
+
+    public static String getImageStreamNameFromPullSpec(String pullSpec) {
+        return pullSpec.replaceAll(".*/", "").replaceAll(":.*", "");
+    }
+
+    public static String getTagNameFromPullSpec(String pullSpec) {
+        return pullSpec.replaceAll(".*:", "");
     }
 }
