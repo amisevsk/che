@@ -118,6 +118,7 @@ public class OpenShiftConnector extends DockerConnector {
     private static final String OPENSHIFT_SERVICE_TYPE_NODE_PORT         = "NodePort";
     private static final int OPENSHIFT_WAIT_POD_DELAY                    = 1000;
     private static final int OPENSHIFT_WAIT_POD_TIMEOUT                  = 240;
+    private static final int OPENSHIFT_IMAGESTREAM_MAX_WAIT              = 10; // seconds
     private static final String OPENSHIFT_POD_STATUS_RUNNING             = "Running";
     private static final String OPENSHIFT_DEPLOYMENT_LABEL               = "deployment";
     private static final String OPENSHIFT_IMAGE_PULL_POLICY_IFNOTPRESENT = "IfNotPresent";
@@ -469,7 +470,7 @@ public class OpenShiftConnector extends DockerConnector {
 
         // Wait up to 5 seconds for Image metadata to be obtained.
         ImageStream createdImageStream;
-        for (int waitcount = 0; waitcount < 5; waitcount++) {
+        for (int waitcount = 0; waitcount < OPENSHIFT_IMAGESTREAM_MAX_WAIT; waitcount++) {
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
@@ -533,7 +534,7 @@ public class OpenShiftConnector extends DockerConnector {
                                                            .done();
 
             // Wait up to 5 seconds for image metadata to be pulled
-            for (int waitCount = 0; waitCount < 5; waitCount++) {
+            for (int waitCount = 0; waitCount < OPENSHIFT_IMAGESTREAM_MAX_WAIT; waitCount++) {
                 Thread.sleep(1000);
 
                 ImageStreamTag createdTag = openShiftClient.imageStreamTags()
