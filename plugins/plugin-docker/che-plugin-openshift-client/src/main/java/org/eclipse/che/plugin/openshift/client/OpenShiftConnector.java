@@ -299,7 +299,8 @@ public class OpenShiftConnector extends DockerConnector {
 
         ContainerInfo info = super.inspectContainer(container);
 
-        return createContainerInfo(svc, imageInfo);
+        ContainerInfo res = createContainerInfo(svc, imageInfo, container);
+        return createContainerInfo(svc, imageInfo, container);
 //        // Proxy to DockerConnector
 //        ContainerInfo info = super.inspectContainer(container);
 //        if (info == null) {
@@ -342,11 +343,11 @@ public class OpenShiftConnector extends DockerConnector {
 //        return info;
     }
 
-    private ContainerInfo createContainerInfo(Service svc, ImageInfo imageInfo) {
+    private ContainerInfo createContainerInfo(Service svc, ImageInfo imageInfo, String containerId) {
 
         // HostConfig
         HostConfig hostConfig = new HostConfig();
-        String[] binds = null;
+        String[] binds = new String[0];
         long memory = imageInfo.getConfig().getMemory();
         hostConfig.setBinds(binds);
         hostConfig.setMemory(memory);;
@@ -355,8 +356,13 @@ public class OpenShiftConnector extends DockerConnector {
         ContainerConfig config = new ContainerConfig();
         String[] env = imageInfo.getConfig().getEnv();
         String image = imageInfo.getConfig().getImage();
+        String user = imageInfo.getConfig().getUser();
 
-        Map<String, Map<String, String>> exposedPorts = null;
+        Map<String, List<PortBinding>> ports = getCheServicePorts(svc);
+        Map<String, Map<String, String>> exposedPorts = new HashMap<>();
+        for (String key : ports.keySet()) {
+            exposedPorts.put(key, Collections.emptyMap());
+        }
 
         Map<String, String> annotations = KubernetesLabelConverter.namesToLabels(svc.getMetadata().getAnnotations());
         Map<String, String> containerLabels = imageInfo.getConfig().getLabels();
@@ -369,16 +375,18 @@ public class OpenShiftConnector extends DockerConnector {
         config.setImage(image);
         config.setExposedPorts(exposedPorts);
         config.setLabels(labels);
+        config.setUser(user);
 
         // NetworkSettings
         NetworkSettings networkSettings = new NetworkSettings();
-        String ipAddress = null;
-        String gateway = null;
-        Map<String, List<PortBinding>> ports = getCheServicePorts(svc);
+        String ipAddress = svc.getSpec().getClusterIP();
+        String gateway = ipAddress;
         networkSettings.setIpAddress(ipAddress);
         networkSettings.setGateway(gateway);
         networkSettings.setPorts(ports);
+
         ContainerInfo info = new ContainerInfo();
+        info.setId(containerId);
         info.setConfig(config);
         info.setNetworkSettings(networkSettings);
         return info;
@@ -388,9 +396,11 @@ public class OpenShiftConnector extends DockerConnector {
         // The DockerImageConfig string here is the JSON that would be returned by a docker inspect,
         // except that the capitalization is inconsistent, breaking deserialization. Top level elements
         // are lowercased, while nested elements conform to FieldNamingPolicy.UPPER_CAMEL_CASE.
-        // We're only converting the config field for brevity; this means that other fields are null.
+        // We're only converting the config fields for brevity; this means that other fields are null.
         String dockerImageConfig = imageStreamTag.getImage().getDockerImageConfig();
-        ImageInfo info = GSON.fromJson(dockerImageConfig.replaceFirst("config", "Config"), ImageInfo.class);
+        ImageInfo info = GSON.fromJson(dockerImageConfig.replaceFirst("config", "Config")
+                                                        .replaceFirst("container_config", "ContainerConfig"),
+                                       ImageInfo.class);
 
         return info;
     }
@@ -554,7 +564,7 @@ public class OpenShiftConnector extends DockerConnector {
 
         // Wait up to 5 seconds for Image metadata to be obtained.
         ImageStream createdImageStream;
-        for (int waitcount = 0; waitcount < OPENSHIFT_IMAGESTREAM_MAX_WAIT; waitcount++) {
+        for (int waitCount = 0; waitCount < OPENSHIFT_IMAGESTREAM_MAX_WAIT; waitCount++) {
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
@@ -566,7 +576,7 @@ public class OpenShiftConnector extends DockerConnector {
                                                 .withName(imageStreamName)
                                                 .get();
 
-            LOG.error("*** Pull *** Waitcount = " + waitCount + " (" + newImageStreamName + ")");
+            LOG.error("*** Pull *** Waitcount = " + waitCount + " (" + imageStreamName + ")");
             if (createdImageStream != null
                     && createdImageStream.getStatus().getDockerImageRepository() != null) {
                 LOG.info(String.format("Created ImageStream %s.", imageStreamName));
