@@ -566,6 +566,7 @@ public class OpenShiftConnector extends DockerConnector {
                                                 .withName(imageStreamName)
                                                 .get();
 
+            LOG.error("*** Pull *** Waitcount = " + waitCount + " (" + newImageStreamName + ")");
             if (createdImageStream != null
                     && createdImageStream.getStatus().getDockerImageRepository() != null) {
                 LOG.info(String.format("Created ImageStream %s.", imageStreamName));
@@ -625,6 +626,7 @@ public class OpenShiftConnector extends DockerConnector {
                                                            .inNamespace(openShiftCheProjectName)
                                                            .withName(newImageStreamName)
                                                            .get();
+                LOG.error("*** Tag ***  Waitcount = " + waitCount + " (" + newImageStreamName + ")");
                 if (createdTag != null) {
                     LOG.info(String.format("Created ImageStreamTag %s in namespace %s",
                                            imageStreamTag.getMetadata().getName(),
