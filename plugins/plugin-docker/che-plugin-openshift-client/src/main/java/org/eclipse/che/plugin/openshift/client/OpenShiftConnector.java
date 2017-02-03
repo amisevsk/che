@@ -298,15 +298,13 @@ public class OpenShiftConnector extends DockerConnector {
             return null;
         }
 
-//        ContainerInfo info = super.inspectContainer(container);
-
         ContainerInfo res = createContainerInfo(svc, imageInfo, pod, containerId);
-//        return info;
-        // Proxy to DockerConnector
-        ContainerInfo info = super.inspectContainer(containerId);
-        if (info == null) {
-            return null;
-        }
+
+//        // Proxy to DockerConnector
+//        ContainerInfo info = super.inspectContainer(containerId);
+//        if (info == null) {
+//            return null;
+//        }
 
 //        Pod pod = getChePodByContainerId(info.getId());
 //        if (pod == null ) {
@@ -326,20 +324,20 @@ public class OpenShiftConnector extends DockerConnector {
 //            return null;
 //        }
 
-        Map<String, String> annotations = KubernetesLabelConverter.namesToLabels(svc.getMetadata().getAnnotations());
-        Map<String, String> containerLabels = info.getConfig().getLabels();
-
-        Map<String, String> labels = Stream.concat(annotations.entrySet().stream(), containerLabels.entrySet().stream())
-                                           .filter(e -> e.getKey().startsWith(KubernetesLabelConverter.getCheServerLabelPrefix()))
-                                           .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
-
-        info.getConfig().setLabels(labels);
-
-        LOG.info("Container labels:");
-        info.getConfig().getLabels().entrySet()
-                        .stream().forEach(e -> LOG.info("- {}={}", e.getKey(), e.getValue()));
-
-        replaceNetworkSettings(info);
+//        Map<String, String> annotations = KubernetesLabelConverter.namesToLabels(svc.getMetadata().getAnnotations());
+//        Map<String, String> containerLabels = info.getConfig().getLabels();
+//
+//        Map<String, String> labels = Stream.concat(annotations.entrySet().stream(), containerLabels.entrySet().stream())
+//                                           .filter(e -> e.getKey().startsWith(KubernetesLabelConverter.getCheServerLabelPrefix()))
+//                                           .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
+//
+//        info.getConfig().setLabels(labels);
+//
+//        LOG.info("Container labels:");
+//        info.getConfig().getLabels().entrySet()
+//                        .stream().forEach(e -> LOG.info("- {}={}", e.getKey(), e.getValue()));
+//
+//        replaceNetworkSettings(info);
 
         return res;
     }
@@ -355,8 +353,6 @@ public class OpenShiftConnector extends DockerConnector {
         HostConfig hostConfig = new HostConfig();
         String[] binds = new String[0];
         long memory = imageInfo.getConfig().getMemory();
-        hostConfig.setBinds(binds);
-        hostConfig.setMemory(memory);;
 
         // ContainerConfig
         ContainerConfig config = imageInfo.getContainerConfig();
@@ -370,20 +366,24 @@ public class OpenShiftConnector extends DockerConnector {
         String[] env = Stream.concat(imageEnv.stream(), containerEnv.stream())
                              .toArray(String[]::new);
 
+        // Exposed Ports
         Map<String, List<PortBinding>> ports = getCheServicePorts(svc);
         Map<String, Map<String, String>> exposedPorts = new HashMap<>();
         for (String key : ports.keySet()) {
             exposedPorts.put(key, Collections.emptyMap());
         }
 
+        // Labels
         Map<String, String> annotations = KubernetesLabelConverter.namesToLabels(svc.getMetadata().getAnnotations());
         Map<String, String> containerLabels = imageInfo.getConfig().getLabels();
         Map<String, String> labels = Stream.concat(annotations.entrySet().stream(), containerLabels.entrySet().stream())
                                            .filter(e -> e.getKey().startsWith(KubernetesLabelConverter.getCheServerLabelPrefix()))
                                            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
 
-        // TODO: Not all envvars covered -- does this matter?
-//        config.setHostConfig(hostConfig); // ignore? - not in Docker API afaik
+        hostConfig.setBinds(binds);
+        hostConfig.setMemory(memory);;
+
+        // Set parameters
         config.setExposedPorts(exposedPorts);
         config.setLabels(labels);
         config.setEnv(env);
@@ -396,14 +396,6 @@ public class OpenShiftConnector extends DockerConnector {
         networkSettings.setIpAddress(ipAddress);
         networkSettings.setGateway(gateway);
         networkSettings.setPorts(ports);
-
-//        // ContainerState
-//        ContainerState state = new ContainerState();
-//        io.fabric8.kubernetes.api.model.ContainerState containerState =
-//                pod.getStatus().getContainerStatuses().get(0).getState();
-//        state.setRunning(containerState.getRunning());
-//        state.set
-
 
         // Make final ContainerInfo
         ContainerInfo info = new ContainerInfo();
