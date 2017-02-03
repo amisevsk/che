@@ -407,7 +407,7 @@ public class OpenShiftConnector extends DockerConnector {
         return info;
     }
 
-    public ImageInfo getImageInfoFromTag(ImageStreamTag imageStreamTag) {
+    private ImageInfo getImageInfoFromTag(ImageStreamTag imageStreamTag) {
         // The DockerImageConfig string here is the JSON that would be returned by a docker inspect image,
         // except that the capitalization is inconsistent, breaking deserialization. Top level elements
         // are lowercased with underscores, while nested elements conform to FieldNamingPolicy.UPPER_CAMEL_CASE.
