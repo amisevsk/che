@@ -41,7 +41,6 @@ import org.eclipse.che.plugin.docker.client.json.ContainerConfig;
 import org.eclipse.che.plugin.docker.client.json.ContainerCreated;
 import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
 import org.eclipse.che.plugin.docker.client.json.ContainerListEntry;
-import org.eclipse.che.plugin.docker.client.json.ContainerState;
 import org.eclipse.che.plugin.docker.client.json.HostConfig;
 import org.eclipse.che.plugin.docker.client.json.ImageConfig;
 import org.eclipse.che.plugin.docker.client.json.ImageInfo;
@@ -298,67 +297,35 @@ public class OpenShiftConnector extends DockerConnector {
             return null;
         }
 
-        ContainerInfo res = createContainerInfo(svc, imageInfo, pod, containerId);
-
-//        // Proxy to DockerConnector
-//        ContainerInfo info = super.inspectContainer(containerId);
-//        if (info == null) {
-//            return null;
-//        }
-
-//        Pod pod = getChePodByContainerId(info.getId());
-//        if (pod == null ) {
-//            LOG.warn("No Pod found by container ID {}", info.getId());
-//            return null;
-//        }
-
-//        String deploymentName = pod.getMetadata().getLabels().get(OPENSHIFT_DEPLOYMENT_LABEL);
-//        if (deploymentName == null ) {
-//            LOG.warn("No label {} found for Pod {}", OPENSHIFT_DEPLOYMENT_LABEL, pod.getMetadata().getName());
-//            return null;
-//        }
-
-//        Service svc = getCheServiceBySelector(OPENSHIFT_DEPLOYMENT_LABEL, deploymentName);
-//        if (svc == null) {
-//            LOG.warn("No Service found by selector {}={}", OPENSHIFT_DEPLOYMENT_LABEL, deploymentName);
-//            return null;
-//        }
-
-//        Map<String, String> annotations = KubernetesLabelConverter.namesToLabels(svc.getMetadata().getAnnotations());
-//        Map<String, String> containerLabels = info.getConfig().getLabels();
-//
-//        Map<String, String> labels = Stream.concat(annotations.entrySet().stream(), containerLabels.entrySet().stream())
-//                                           .filter(e -> e.getKey().startsWith(KubernetesLabelConverter.getCheServerLabelPrefix()))
-//                                           .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
-//
-//        info.getConfig().setLabels(labels);
-//
-//        LOG.info("Container labels:");
-//        info.getConfig().getLabels().entrySet()
-//                        .stream().forEach(e -> LOG.info("- {}={}", e.getKey(), e.getValue()));
-//
-//        replaceNetworkSettings(info);
-
-        return res;
+        return createContainerInfo(svc, imageInfo, pod, containerId);
     }
 
+    /**
+     * Collects the relevant information from a Service, an ImageInfo, and a Pod into
+     * a docker ContainerInfo JSON object. The returned object is what would be returned
+     * by executing {@code docker inspect <container>}, with fields filled as available.
+     * @param svc
+     * @param imageInfo
+     * @param pod
+     * @param containerId
+     * @return
+     */
     private ContainerInfo createContainerInfo(Service svc,
                                               ImageInfo imageInfo,
                                               Pod pod,
                                               String containerId) {
 
+        // On OpenShift, we only have one container per pod.
         Container container = pod.getSpec().getContainers().get(0);
+        ContainerConfig imageContainerConfig = imageInfo.getContainerConfig();
 
         // HostConfig
         HostConfig hostConfig = new HostConfig();
-        String[] binds = new String[0];
-        long memory = imageInfo.getConfig().getMemory();
-
-        // ContainerConfig
-        ContainerConfig config = imageInfo.getContainerConfig();
+        hostConfig.setBinds(new String[0]);
+        hostConfig.setMemory(imageInfo.getConfig().getMemory());
 
         // Env vars
-        List<String> imageEnv = Arrays.asList(config.getEnv());
+        List<String> imageEnv = Arrays.asList(imageContainerConfig.getEnv());
         List<String> containerEnv = container.getEnv()
                                              .stream()
                                              .map(e -> String.format("%s=%s", e.getName(), e.getValue()))
@@ -380,21 +347,18 @@ public class OpenShiftConnector extends DockerConnector {
                                            .filter(e -> e.getKey().startsWith(KubernetesLabelConverter.getCheServerLabelPrefix()))
                                            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
 
-        hostConfig.setBinds(binds);
-        hostConfig.setMemory(memory);;
-
-        // Set parameters
+        // ContainerConfig
+        ContainerConfig config = imageContainerConfig;
+        config.setHostname(svc.getMetadata().getName());
+        config.setEnv(env);
         config.setExposedPorts(exposedPorts);
         config.setLabels(labels);
-        config.setEnv(env);
         config.setImage(container.getImage());
 
         // NetworkSettings
         NetworkSettings networkSettings = new NetworkSettings();
-        String ipAddress = svc.getSpec().getClusterIP();
-        String gateway = ipAddress;
-        networkSettings.setIpAddress(ipAddress);
-        networkSettings.setGateway(gateway);
+        networkSettings.setIpAddress(svc.getSpec().getClusterIP());
+        networkSettings.setGateway(svc.getSpec().getClusterIP());
         networkSettings.setPorts(ports);
 
         // Make final ContainerInfo
@@ -407,6 +371,14 @@ public class OpenShiftConnector extends DockerConnector {
         return info;
     }
 
+    /**
+     * Extracts the ImageInfo stored in an ImageStreamTag. The returned object is the JSON
+     * that would be returned by executing {@code docker inspect <image>}, except, due to a quirk
+     * in OpenShift's handling of this data, fields except for {@code Config} and {@code ContainerConfig}
+     * are null.
+     * @param imageStreamTag
+     * @return
+     */
     private ImageInfo getImageInfoFromTag(ImageStreamTag imageStreamTag) {
         // The DockerImageConfig string here is the JSON that would be returned by a docker inspect image,
         // except that the capitalization is inconsistent, breaking deserialization. Top level elements
@@ -982,31 +954,6 @@ public class OpenShiftConnector extends DockerConnector {
             }
         }
         return null;
-    }
-
-    private void replaceNetworkSettings(ContainerInfo info) throws IOException {
-        if (info.getNetworkSettings() == null) {
-            return;
-        }
-
-        Service service = getCheWorkspaceService();
-        Map<String, List<PortBinding>> networkSettingsPorts = getCheServicePorts(service);
-        info.getNetworkSettings().setPorts(networkSettingsPorts);
-    }
-
-    private Service getCheWorkspaceService() throws IOException {
-        ServiceList services = openShiftClient.services().inNamespace(this.openShiftCheProjectName).list();
-        // TODO: improve how the service is found (e.g. using a label with the workspaceid)
-        Service service = services.getItems().stream()
-                .filter(s -> s.getMetadata().getName().startsWith(CHE_OPENSHIFT_RESOURCES_PREFIX))
-                .findFirst().orElse(null);
-
-        if (service == null) {
-            LOG.error("No service with prefix {} found", CHE_OPENSHIFT_RESOURCES_PREFIX);
-            throw new IOException("No service with prefix " + CHE_OPENSHIFT_RESOURCES_PREFIX +" found");
-        }
-
-        return service;
     }
 
     /**
