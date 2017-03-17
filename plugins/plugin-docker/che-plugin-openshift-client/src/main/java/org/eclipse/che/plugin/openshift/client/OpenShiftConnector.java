@@ -258,9 +258,9 @@ public class OpenShiftConnector extends DockerConnector {
 
         Map<String, String> additionalLabels = createContainerParams.getContainerConfig().getLabels();
 
-        long memory = createContainerParams.getContainerConfig().getHostConfig().getMemory();
+        long memoryMiB = createContainerParams.getContainerConfig().getHostConfig().getMemory() / 1048576;
         Map<String, Quantity> memoryLimit = Collections.singletonMap("memory",
-                                                                     new Quantity(Long.toString(memory)));
+                                                                     new Quantity(Long.toString(memoryMiB) + "Mi"));
         Map<String, Quantity> memoryRequest = Collections.singletonMap("memory", new Quantity("128Mi"));
 
         String containerID;
@@ -662,7 +662,21 @@ public class OpenShiftConnector extends DockerConnector {
                 new Watcher<io.fabric8.kubernetes.api.model.Event>() {
             @Override
             public void eventReceived(Action action, io.fabric8.kubernetes.api.model.Event event) {
-                // Do nothing;
+                if (event.getInvolvedObject().getKind().equals("Pod") && event.getReason().equals("Killing")) {
+                    String podName = event.getInvolvedObject().getName();
+                    LOG.error("Pod Killed; name: " + podName);
+                    try {
+                        Thread.sleep(1500);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    Pod pod = openShiftClient.pods().inNamespace(openShiftCheProjectName).withName(podName).get();
+                    if (pod != null && pod.getStatus() != null) {
+                        LOG.error("REASON: " + pod.getStatus().getReason());
+                        LOG.error("CONDITIONS: " + pod.getStatus().getConditions());
+                        LOG.error("CONTAINREST: "+ pod.getStatus().getContainerStatuses());
+                    }
+                }
             }
 
             @Override
