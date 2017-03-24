@@ -956,12 +956,12 @@ public class OpenShiftConnector extends DockerConnector {
                 .inNamespace(this.openShiftCheProjectName)
                 .createNew()
                 .withNewMetadata()
-                .withName(serviceName)
-                .withAnnotations(KubernetesLabelConverter.labelsToNames(additionalLabels))
+                    .withName(serviceName)
+                    .withAnnotations(KubernetesLabelConverter.labelsToNames(additionalLabels))
                 .endMetadata()
                 .withNewSpec()
-                .withSelector(selector)
-                .withPorts(ports)
+                    .withSelector(selector)
+                    .withPorts(ports)
                 .endSpec()
                 .done();
 
@@ -984,20 +984,20 @@ public class OpenShiftConnector extends DockerConnector {
                 .inNamespace(this.openShiftCheProjectName)
                 .createNew()
                 .withNewMetadata()
-                .withName(routeName)
-                .addToLabels(OPENSHIFT_DEPLOYMENT_LABEL,serviceName)
+                    .withName(routeName)
+                    .addToLabels(OPENSHIFT_DEPLOYMENT_LABEL,serviceName)
                 .endMetadata()
                 .withNewSpec()
-                .withHost(serviceHost)
-                .withNewTo()
-                    .withKind("Service")
-                    .withName(serviceName)
-                .endTo()
-                .withNewPort()
-                    .withNewTargetPort()
-                        .withStrVal(serverRef)
-                    .endTargetPort()
-                .endPort()
+                    .withHost(serviceHost)
+                    .withNewTo()
+                        .withKind("Service")
+                        .withName(serviceName)
+                    .endTo()
+                    .withNewPort()
+                        .withNewTargetPort()
+                            .withStrVal(serverRef)
+                        .endTargetPort()
+                    .endPort()
                 .endSpec()
                 .done();
 
@@ -1041,34 +1041,44 @@ public class OpenShiftConnector extends DockerConnector {
         PodSpec podSpec = new PodSpecBuilder()
                                  .withContainers(container)
                                  .withVolumes(getVolumesFrom(volumes, workspaceID))
+                                 .withRestartPolicy("Never")
                                  .build();
 
-        Deployment deployment = new DeploymentBuilder()
-                .withNewMetadata()
-                    .withName(deploymentName)
-                    .withNamespace(this.openShiftCheProjectName)
-                .endMetadata()
-                .withNewSpec()
-                    .withReplicas(1)
-                    .withNewSelector()
-                        .withMatchLabels(selector)
-                    .endSelector()
-                    .withNewTemplate()
-                        .withNewMetadata()
-                            .withLabels(selector)
-                        .endMetadata()
-                        .withSpec(podSpec)
-                    .endTemplate()
-                .endSpec()
-                .build();
-
-        deployment = openShiftClient.extensions()
-                                    .deployments()
-                                    .inNamespace(this.openShiftCheProjectName)
-                                    .create(deployment);
+        Pod pod = openShiftClient.pods().inNamespace(openShiftCheProjectName)
+                                        .createNew()
+                                        .withNewMetadata()
+                                            .withName(deploymentName)
+                                            .withNamespace(openShiftCheProjectName)
+                                            .withLabels(selector)
+                                        .endMetadata()
+                                        .withSpec(podSpec)
+                                        .done();
+//        Deployment deployment = new DeploymentBuilder()
+//                .withNewMetadata()
+//                    .withName(deploymentName)
+//                    .withNamespace(this.openShiftCheProjectName)
+//                .endMetadata()
+//                .withNewSpec()
+//                    .withReplicas(1)
+//                    .withNewSelector()
+//                        .withMatchLabels(selector)
+//                    .endSelector()
+//                    .withNewTemplate()
+//                        .withNewMetadata()
+//                            .withLabels(selector)
+//                        .endMetadata()
+//                        .withSpec(podSpec)
+//                    .endTemplate()
+//                .endSpec()
+//                .build();
+//
+//        deployment = openShiftClient.extensions()
+//                                    .deployments()
+//                                    .inNamespace(this.openShiftCheProjectName)
+//                                    .create(deployment);
 
         LOG.info("OpenShift deployment {} created", deploymentName);
-        return deployment.getMetadata().getName();
+        return pod.getMetadata().getName();
     }
 
     /**
@@ -1193,7 +1203,7 @@ public class OpenShiftConnector extends DockerConnector {
 
     private void cleanUpWorkspaceResources(String deploymentName) throws IOException {
 
-        Deployment deployment = getDeploymentByName(deploymentName);
+//        Deployment deployment = getDeploymentByName(deploymentName);
         Service service = getCheServiceBySelector(OPENSHIFT_DEPLOYMENT_LABEL, deploymentName);
         List<Route> routes = getRoutesByLabel(OPENSHIFT_DEPLOYMENT_LABEL, deploymentName);
 
@@ -1209,10 +1219,13 @@ public class OpenShiftConnector extends DockerConnector {
             openShiftClient.resource(service).delete();
         }
 
-        if (deployment != null) {
-            LOG.info("Removing OpenShift Deployment {}", deployment.getMetadata().getName());
-            openShiftClient.resource(deployment).delete();
-        }
+//        if (deployment != null) {
+//            LOG.info("Removing OpenShift Deployment {}", deployment.getMetadata().getName());
+//            openShiftClient.resource(deployment).delete();
+//        }
+
+        Pod pod = openShiftClient.pods().inNamespace(openShiftCheProjectName).withName(deploymentName).get();
+        openShiftClient.resource(pod).delete();
 
         // Wait for all pods to terminate before returning.
         try {
