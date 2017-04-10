@@ -14,6 +14,7 @@ package org.eclipse.che.plugin.openshift.client;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -1006,93 +1007,12 @@ public class OpenShiftConnector extends DockerConnector {
         Map<String, String> selector = Collections.singletonMap(OPENSHIFT_DEPLOYMENT_LABEL, deploymentName);
 
         LOG.info("Adding container {} to OpenShift deployment {}", sanitizedContainerName, deploymentName);
-        String[] command;
         String workspaceDir = getWorkspaceDir(volumes);
-        if (workspaceDir != null) {
-            command = new String[3];
-            command[0] = "sh";
-            command[1] = "-c";
-            command[2] = "mkdir -p " + workspaceDir + ";tail -f /dev/null";
-        } else {
-            command = null;
+        boolean directoryCreated = new File(workspaceDir).mkdirs();
+        if (!directoryCreated) {
+            LOG.error("Could not create workspace directory for workspace");
         }
-        if (command != null) {
-            Deployment deployment = createOpenShiftDeploymentInternal(workspaceID,
-                                                                      imageName,
-                                                                      sanitizedContainerName,
-                                                                      exposedPorts,
-                                                                      envVariables,
-                                                                      volumes,
-                                                                      deploymentName,
-                                                                      selector,
-                                                                      command,
-                                                                      false,
-                                                                      resourceLimits,
-                                                                      resourceRequests);
-            try {
-                waitAndRetrieveContainerID(deploymentName);
-            } catch (IOException e) {
-                LOG.error(e.getMessage(), e);
-            }
-
-            openShiftClient.extensions()
-                           .deployments()
-                           .inNamespace(this.openShiftCheProjectName)
-                           .delete(deployment);
-            if (!isDeleted(deploymentName)) {
-                LOG.warn("OpenShift deployment {} hasn't been deleted", deploymentName);
-            }
-        }
-        Deployment deployment = createOpenShiftDeploymentInternal(workspaceID,
-                                                       imageName,
-                                                       sanitizedContainerName,
-                                                       exposedPorts,
-                                                       envVariables,
-                                                       volumes,
-                                                       deploymentName,
-                                                       selector,
-                                                       null,
-                                                       true,
-                                                       resourceLimits,
-                                                       resourceRequests);
-        LOG.info("OpenShift deployment {} created", deploymentName);
-        return deployment.getMetadata().getName();
-    }
-
-    private boolean isDeleted(String deploymentName) {
-        for (int i = 0; i < OPENSHIFT_WAIT_POD_TIMEOUT; i++) {
-            try {
-                Thread.sleep(OPENSHIFT_WAIT_POD_DELAY);
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            }
-
-            List<Pod> pods = openShiftClient.pods()
-                                .inNamespace(this.openShiftCheProjectName)
-                                .withLabel(OPENSHIFT_DEPLOYMENT_LABEL, deploymentName)
-                                .list()
-                                .getItems();
-
-            if (pods.size() < 1) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private Deployment createOpenShiftDeploymentInternal(String workspaceID,
-                                                         String imageName,
-                                                         String sanitizedContainerName,
-                                                         Set<String> exposedPorts,
-                                                         String[] envVariables,
-                                                         String[] volumes,
-                                                         String deploymentName,
-                                                         Map<String,
-                                                         String> selector,
-                                                         String[] command,
-                                                         boolean withSubpath,
-                                                         Map<String, Quantity> resourceLimits,
-                                                         Map<String, Quantity> resourceRequests) {
+        LOG.info("Created workspace dir {}", workspaceDir);
 
         Container container = new ContainerBuilder()
                                     .withName(sanitizedContainerName)
@@ -1104,8 +1024,7 @@ public class OpenShiftConnector extends DockerConnector {
                                         .withPrivileged(false)
                                     .endSecurityContext()
                                     .withLivenessProbe(getLivenessProbeFrom(exposedPorts))
-                                    .withCommand(command)
-                                    .withVolumeMounts(getVolumeMountsFrom(volumes, workspaceID, withSubpath))
+                                    .withVolumeMounts(getVolumeMountsFrom(volumes, workspaceID))
                                     .withNewResources()
                                         .withLimits(resourceLimits)
                                         .withRequests(resourceRequests)
@@ -1118,29 +1037,31 @@ public class OpenShiftConnector extends DockerConnector {
                                  .build();
 
         Deployment deployment = new DeploymentBuilder()
-                .withNewMetadata()
-                    .withName(deploymentName)
-                    .withNamespace(this.openShiftCheProjectName)
-                .endMetadata()
-                .withNewSpec()
-                    .withReplicas(1)
-                    .withNewSelector()
-                        .withMatchLabels(selector)
-                    .endSelector()
-                    .withNewTemplate()
-                        .withNewMetadata()
-                            .withLabels(selector)
-                        .endMetadata()
-                        .withSpec(podSpec)
-                    .endTemplate()
-                .endSpec()
-                .build();
+                                        .withNewMetadata()
+                                            .withName(deploymentName)
+                                            .withNamespace(this.openShiftCheProjectName)
+                                        .endMetadata()
+                                        .withNewSpec()
+                                            .withReplicas(1)
+                                            .withNewSelector()
+                                                .withMatchLabels(selector)
+                                            .endSelector()
+                                            .withNewTemplate()
+                                                .withNewMetadata()
+                                                    .withLabels(selector)
+                                                .endMetadata()
+                                                .withSpec(podSpec)
+                                            .endTemplate()
+                                        .endSpec()
+                                        .build();
 
         deployment = openShiftClient.extensions()
                                     .deployments()
                                     .inNamespace(this.openShiftCheProjectName)
                                     .create(deployment);
-        return deployment;
+
+        LOG.info("OpenShift deployment {} created", deploymentName);
+        return deployment.getMetadata().getName();
     }
 
     /**
@@ -1324,7 +1245,7 @@ public class OpenShiftConnector extends DockerConnector {
         return null;
     }
 
-    private List<VolumeMount> getVolumeMountsFrom(String[] volumes, String workspaceID, boolean withSubPath) {
+    private List<VolumeMount> getVolumeMountsFrom(String[] volumes, String workspaceID) {
         List<VolumeMount> vms = new ArrayList<>();
         PersistentVolumeClaim pvc = getClaimCheWorkspace();
         if (pvc != null) {
@@ -1332,19 +1253,16 @@ public class OpenShiftConnector extends DockerConnector {
                 String mountPath = volume.split(":",3)[1];
                 if (cheWorkspaceProjectsStorage.equals(mountPath)) {
                     String hostPath = volume.split(":",3)[0];
-                    String subPath = null;
-                    if (withSubPath) {
-                        subPath = hostPath.replace(cheWorkspaceStorage, "");
-                        if (subPath.startsWith("/")) {
-                            subPath = subPath.substring(1);
-                        }
+                    String subPath = hostPath.replace(cheWorkspaceStorage, "");
+                    if (subPath.startsWith("/")) {
+                        subPath = subPath.substring(1);
                     }
                     VolumeMount vm = new VolumeMountBuilder()
                             .withMountPath(mountPath)
                             .withName(workspacesPersistentVolumeClaim)
                             .withSubPath(subPath)
                             .build();
-                        vms.add(vm);
+                    vms.add(vm);
                 }
             }
         } else {
