@@ -102,7 +102,6 @@ import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaimBuilder;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaimList;
-import io.fabric8.kubernetes.api.model.PersistentVolumeClaimSpec;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaimVolumeSource;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaimVolumeSourceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -1494,39 +1493,39 @@ public class OpenShiftConnector extends DockerConnector {
     private boolean isDevMachine(final Set<String> exposedPorts) {
         return exposedPorts.contains(CHE_WORKSPACE_AGENT_PORT + "/tcp");
     }
-
-    public void deleteWorkspaceResources(String workspaceName) {
-        VolumeMount vm = new VolumeMountBuilder().withMountPath("/projects")
-                                                 .withName(workspacesPersistentVolumeClaim)
-                                                 .build();
-
-        PersistentVolumeClaimVolumeSource pvcs = new PersistentVolumeClaimVolumeSourceBuilder()
-                                                         .withClaimName(workspacesPersistentVolumeClaim)
-                                                         .build();
-
-        Volume volume = new VolumeBuilder().withPersistentVolumeClaim(pvcs)
-                                           .withName(workspacesPersistentVolumeClaim)
-                                           .build();
-
-        Container container = new ContainerBuilder().withImage("busybox")
-                                                    .withImagePullPolicy("IfNotPresent")
-                                                    .withNewSecurityContext()
-                                                        .withPrivileged(false)
-                                                    .endSecurityContext()
-                                                    .withCommand("rm", "-rf", "/projects/" + workspaceName)
-                                                    .withVolumeMounts(vm)
-                                                    .build();
-
-        openShiftClient.pods()
-                       .createNew()
-                       .withNewMetadata()
-                           .withName("delete-" + workspaceName)
-                       .endMetadata()
-                       .withNewSpec()
-                           .withContainers(container)
-                           .withVolumes(volume)
-                           .withRestartPolicy("Never")
-                       .endSpec()
-                       .done();
-    }
+//
+//    public void deleteWorkspaceResources(String workspaceName) {
+//        VolumeMount vm = new VolumeMountBuilder().withMountPath("/projects")
+//                                                 .withName(workspacesPersistentVolumeClaim)
+//                                                 .build();
+//
+//        PersistentVolumeClaimVolumeSource pvcs = new PersistentVolumeClaimVolumeSourceBuilder()
+//                                                         .withClaimName(workspacesPersistentVolumeClaim)
+//                                                         .build();
+//
+//        Volume volume = new VolumeBuilder().withPersistentVolumeClaim(pvcs)
+//                                           .withName(workspacesPersistentVolumeClaim)
+//                                           .build();
+//
+//        Container container = new ContainerBuilder().withImage("busybox")
+//                                                    .withImagePullPolicy("IfNotPresent")
+//                                                    .withNewSecurityContext()
+//                                                        .withPrivileged(false)
+//                                                    .endSecurityContext()
+//                                                    .withCommand("rm", "-rf", "/projects/" + workspaceName)
+//                                                    .withVolumeMounts(vm)
+//                                                    .build();
+//
+//        openShiftClient.pods()
+//                       .createNew()
+//                       .withNewMetadata()
+//                           .withName("delete-" + workspaceName)
+//                       .endMetadata()
+//                       .withNewSpec()
+//                           .withContainers(container)
+//                           .withVolumes(volume)
+//                           .withRestartPolicy("Never")
+//                       .endSpec()
+//                       .done();
+//    }
 }
