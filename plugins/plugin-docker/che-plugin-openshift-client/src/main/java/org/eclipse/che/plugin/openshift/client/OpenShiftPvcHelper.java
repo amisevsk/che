@@ -2,6 +2,9 @@ package org.eclipse.che.plugin.openshift.client;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
+import java.util.Collections;
+import java.util.Map;
+
 import javax.inject.Named;
 
 import org.slf4j.Logger;
@@ -12,6 +15,7 @@ import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaimVolumeSource;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaimVolumeSourceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeBuilder;
 import io.fabric8.kubernetes.api.model.VolumeMount;
@@ -53,6 +57,8 @@ final class OpenShiftPvcHelper {
 
         String[] jobCommand = getCommand(command, "/projects/" + workspaceDir);
 
+        Map<String, Quantity> limit = Collections.singletonMap("memory", new Quantity("10Mi"));
+
         Container container = new ContainerBuilder().withName(jobNamePrefix + workspaceDir)
                                                     .withImage(JOB_IMAGE)
                                                     .withImagePullPolicy("IfNotPresent")
@@ -61,6 +67,9 @@ final class OpenShiftPvcHelper {
                                                     .endSecurityContext()
                                                     .withCommand(jobCommand)
                                                     .withVolumeMounts(vm)
+                                                    .withNewResources()
+                                                        .withLimits(limit)
+                                                    .endResources()
                                                     .build();
 
         try (OpenShiftClient openShiftClient = new DefaultOpenShiftClient()){
