@@ -77,7 +77,6 @@ public class OpenShiftConnectorTest {
                                                     OPENSHIFT_DEFAULT_WORKSPACE_QUANTITY,
                                                     OPENSHIFT_DEFAULT_WORKSPACE_STORAGE,
                                                     OPENSHIFT_DEFAULT_WORKSPACE_PROJECTS_STORAGE,
-                                                    null,
                                                     CHE_WORKSPACE_CPU_LIMIT,
                                                     null,
                                                     SECURE_ROUTES);

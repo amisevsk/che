@@ -14,7 +14,6 @@ package org.eclipse.che.plugin.openshift.client;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -170,7 +169,6 @@ public class OpenShiftConnector extends DockerConnector {
     private final String          workspacesPvcQuantity;
     private final String          cheWorkspaceStorage;
     private final String          cheWorkspaceProjectsStorage;
-    private final String          cheWorkspacePvcMountPath;
     private final String          cheServerExternalAddress;
     private final String          cheWorkspaceMemoryLimit;
     private final String          cheWorkspaceMemoryRequest;
@@ -189,7 +187,6 @@ public class OpenShiftConnector extends DockerConnector {
                               @Named("che.openshift.workspaces.pvc.quantity") String workspacesPvcQuantity,
                               @Named("che.workspace.storage") String cheWorkspaceStorage,
                               @Named("che.workspace.projects.storage") String cheWorkspaceProjectsStorage,
-                              @Nullable @Named("che.openshift.workspace.pvc.mount.path") String cheWorkspacePvcMountPath,
                               @Nullable @Named("che.openshift.workspace.memory.request") String cheWorkspaceMemoryRequest,
                               @Nullable @Named("che.openshift.workspace.memory.override") String cheWorkspaceMemoryLimit,
                               @Named("che.openshift.secure.routes") boolean secureRoutes) {
@@ -203,7 +200,6 @@ public class OpenShiftConnector extends DockerConnector {
         this.workspacesPvcQuantity = workspacesPvcQuantity;
         this.cheWorkspaceStorage = cheWorkspaceStorage;
         this.cheWorkspaceProjectsStorage = cheWorkspaceProjectsStorage;
-        this.cheWorkspacePvcMountPath = cheWorkspacePvcMountPath;
         this.cheWorkspaceMemoryRequest = cheWorkspaceMemoryRequest;
         this.cheWorkspaceMemoryLimit = cheWorkspaceMemoryLimit;
         this.secureRoutes = secureRoutes;
@@ -1276,16 +1272,11 @@ public class OpenShiftConnector extends DockerConnector {
         PersistentVolumeClaim pvc = getClaimCheWorkspace();
         String workspaceSubpath = getWorkspaceSubpath(volumes);
         if (pvc != null && !isNullOrEmpty(workspaceSubpath)) {
-            if (isNullOrEmpty(cheWorkspacePvcMountPath)) {
-                throw new IllegalArgumentException("If workspace PVC is mounted in server, property "
-                        + "che.openshift.workspace.pvc.mount.path must include mount path");
-            }
-            boolean directoryCreated = new File(cheWorkspacePvcMountPath + "/" + workspaceSubpath).mkdirs();
-            if (!directoryCreated) {
-                LOG.error("Could not create workspace subdirectory on PVC {}", pvc.getMetadata().getName());
-            } else {
-                LOG.info("Created workspace directory {} on PVC {}", workspaceSubpath, pvc.getMetadata().getName());
-            }
+            OpenShiftPvcHelper.createJobPod(workspacesPersistentVolumeClaim,
+                                            openShiftCheProjectName,
+                                            workspaceSubpath,
+                                            "create-",
+                                            OpenShiftPvcHelper.Command.MAKE);
         }
     }
 
@@ -1493,39 +1484,4 @@ public class OpenShiftConnector extends DockerConnector {
     private boolean isDevMachine(final Set<String> exposedPorts) {
         return exposedPorts.contains(CHE_WORKSPACE_AGENT_PORT + "/tcp");
     }
-//
-//    public void deleteWorkspaceResources(String workspaceName) {
-//        VolumeMount vm = new VolumeMountBuilder().withMountPath("/projects")
-//                                                 .withName(workspacesPersistentVolumeClaim)
-//                                                 .build();
-//
-//        PersistentVolumeClaimVolumeSource pvcs = new PersistentVolumeClaimVolumeSourceBuilder()
-//                                                         .withClaimName(workspacesPersistentVolumeClaim)
-//                                                         .build();
-//
-//        Volume volume = new VolumeBuilder().withPersistentVolumeClaim(pvcs)
-//                                           .withName(workspacesPersistentVolumeClaim)
-//                                           .build();
-//
-//        Container container = new ContainerBuilder().withImage("busybox")
-//                                                    .withImagePullPolicy("IfNotPresent")
-//                                                    .withNewSecurityContext()
-//                                                        .withPrivileged(false)
-//                                                    .endSecurityContext()
-//                                                    .withCommand("rm", "-rf", "/projects/" + workspaceName)
-//                                                    .withVolumeMounts(vm)
-//                                                    .build();
-//
-//        openShiftClient.pods()
-//                       .createNew()
-//                       .withNewMetadata()
-//                           .withName("delete-" + workspaceName)
-//                       .endMetadata()
-//                       .withNewSpec()
-//                           .withContainers(container)
-//                           .withVolumes(volume)
-//                           .withRestartPolicy("Never")
-//                       .endSpec()
-//                       .done();
-//    }
 }
