@@ -35,10 +35,17 @@ public class OpenShiftRouteCreator {
             throw new IllegalArgumentException("Property che.docker.ip.external must be set when using openshift.");
         }
 
+        String externalAddressRoot;
+        if (openShiftNamespaceExternalAddress.startsWith("che-")) {
+            externalAddressRoot = openShiftNamespaceExternalAddress.substring(4);
+        } else {
+            externalAddressRoot = openShiftNamespaceExternalAddress;
+        }
+
         try (OpenShiftClient openShiftClient = new DefaultOpenShiftClient()) {
             String routeName = generateRouteName(workspaceName, serverRef);
-            String serviceHost = generateRouteHost(routeName, openShiftNamespaceExternalAddress);
-    
+            String serviceHost = generateRouteHost(routeName, externalAddressRoot);
+
                SpecNested<DoneableRoute> routeSpec = openShiftClient
                     .routes()
                     .inNamespace(namespace)
@@ -58,16 +65,16 @@ public class OpenShiftRouteCreator {
                           .withStrVal(serverRef)
                         .endTargetPort()
                       .endPort();
-    
+
             if (enableTls) {
                 routeSpec.withNewTls()
                              .withTermination(TLS_TERMINATION_EDGE)
                              .withInsecureEdgeTerminationPolicy(REDIRECT_INSECURE_EDGE_TERMINATION_POLICY)
                          .endTls();
             }
-    
+
             Route route = routeSpec.endSpec().done();
-    
+
             LOG.info("OpenShift route {} created", route.getMetadata().getName());
         }
     }
