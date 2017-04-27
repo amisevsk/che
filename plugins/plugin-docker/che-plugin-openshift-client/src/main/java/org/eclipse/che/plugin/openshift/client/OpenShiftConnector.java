@@ -34,6 +34,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -131,6 +132,7 @@ import io.fabric8.kubernetes.api.model.extensions.DeploymentBuilder;
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.Watcher;
+import io.fabric8.kubernetes.client.dsl.ExecListener;
 import io.fabric8.kubernetes.client.dsl.ExecWatch;
 import io.fabric8.kubernetes.client.dsl.LogWatch;
 import io.fabric8.kubernetes.client.dsl.Resource;
@@ -145,6 +147,7 @@ import io.fabric8.openshift.api.model.RouteList;
 import io.fabric8.openshift.client.DefaultOpenShiftClient;
 import io.fabric8.openshift.client.OpenShiftClient;
 import io.fabric8.openshift.client.dsl.DeployableScalableResource;
+import okhttp3.Response;
 
 /**
  * Client for OpenShift API.
@@ -881,11 +884,29 @@ public class OpenShiftConnector extends DockerConnector {
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
         OpenShiftClient openShiftClient = new DefaultOpenShiftClient();
+        final CountDownLatch latch = new CountDownLatch(1);
+        ExecListener execListener = new ExecListener() {
+            @Override
+            public void onOpen(Response response) {
+            }
+
+            @Override
+            public void onFailure(Throwable t, Response response) {
+                latch.countDown();
+            }
+
+            @Override
+            public void onClose(int code, String reason) {
+                latch.countDown();
+            }
+        };
+
         try (ExecWatch watch = openShiftClient.pods()
                                               .inNamespace(openShiftCheProjectName)
                                               .withName(podName)
                                               .redirectingOutput()
                                               .redirectingError()
+                                              .usingListener(execListener)
                                               .exec(command);
              InputStreamPumper outputPump = new InputStreamPumper(watch.getOutput(),
                                                                   new KubernetesOutputAdapter(LogMessage.Type.STDOUT,
@@ -894,10 +915,10 @@ public class OpenShiftConnector extends DockerConnector {
                                                                   new KubernetesOutputAdapter(LogMessage.Type.STDERR,
                                                                                               execOutputProcessor))
         ) {
-            Future<?> outFuture = executor.submit(outputPump);
-            Future<?> errFuture = executor.submit(errorPump);
-            // Short-term worksaround; the Futures above seem to never finish.
-            Thread.sleep(2500);
+            executor.submit(outputPump);
+            executor.submit(errorPump);
+
+            latch.await(3, TimeUnit.SECONDS);
         } catch (KubernetesClientException e) {
             throw new OpenShiftException(e.getMessage());
         } catch (InterruptedException e) {
