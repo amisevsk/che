@@ -193,7 +193,6 @@ public class OpenShiftConnector extends DockerConnector {
     private final String          cheWorkspaceMemoryLimit;
     private final String          cheWorkspaceMemoryRequest;
     private final boolean         secureRoutes;
-    private final OpenShiftPvcHelper openShiftPvcHelper;
 
     @Inject
     public OpenShiftConnector(DockerConnectorConfiguration connectorConfiguration,
@@ -201,7 +200,6 @@ public class OpenShiftConnector extends DockerConnector {
                               DockerRegistryAuthResolver authResolver,
                               DockerApiVersionPathPrefixProvider dockerApiVersionPathPrefixProvider,
                               EventService eventService,
-                              OpenShiftPvcHelper openShiftPvcHelper,
                               @Nullable @Named("che.docker.ip.external") String cheServerExternalAddress,
                               @Named("che.openshift.project") String openShiftCheProjectName,
                               @Named("che.openshift.liveness.probe.delay") int openShiftLivenessProbeDelay,
@@ -226,7 +224,6 @@ public class OpenShiftConnector extends DockerConnector {
         this.cheWorkspaceMemoryRequest = cheWorkspaceMemoryRequest;
         this.cheWorkspaceMemoryLimit = cheWorkspaceMemoryLimit;
         this.secureRoutes = secureRoutes;
-        this.openShiftPvcHelper = openShiftPvcHelper;
         eventService.subscribe(new EventSubscriber<ServerIdleEvent>() {
 
             @Override
@@ -1142,8 +1139,6 @@ public class OpenShiftConnector extends DockerConnector {
 
         LOG.info("Adding container {} to OpenShift deployment {}", sanitizedContainerName, deploymentName);
 
-        createWorkspaceDir(volumes);
-
         Container container = new ContainerBuilder()
                                     .withName(sanitizedContainerName)
                                     .withImage(imageName)
@@ -1364,24 +1359,6 @@ public class OpenShiftConnector extends DockerConnector {
         }
 
         throw new OpenShiftException("Timeout while waiting for pods to terminate");
-    }
-
-    private void createWorkspaceDir(String[] volumes) throws OpenShiftException {
-        PersistentVolumeClaim pvc = getClaimCheWorkspace();
-        String workspaceSubpath = getWorkspaceSubpath(volumes);
-        if (pvc != null && !isNullOrEmpty(workspaceSubpath)) {
-            LOG.info("Making sure directory exists for workspace {}", workspaceSubpath);
-            boolean succeeded = openShiftPvcHelper.createJobPod(workspacesPersistentVolumeClaim,
-                                                                openShiftCheProjectName,
-                                                                "create-",
-                                                                OpenShiftPvcHelper.Command.MAKE,
-                                                                workspaceSubpath);
-            if (!succeeded) {
-                LOG.error("Failed to create workspace directory {} in PVC {}", workspaceSubpath,
-                                                                               workspacesPersistentVolumeClaim);
-                throw new OpenShiftException("Failed to create workspace directory in PVC");
-            }
-        }
     }
 
     /**
