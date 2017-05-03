@@ -55,10 +55,12 @@ import org.eclipse.che.plugin.docker.client.MessageProcessor;
 import org.eclipse.che.plugin.docker.client.ProgressMonitor;
 import org.eclipse.che.plugin.docker.client.connection.DockerConnectionFactory;
 import org.eclipse.che.plugin.docker.client.exception.ImageNotFoundException;
+import org.eclipse.che.plugin.docker.client.json.Actor;
 import org.eclipse.che.plugin.docker.client.json.ContainerConfig;
 import org.eclipse.che.plugin.docker.client.json.ContainerCreated;
 import org.eclipse.che.plugin.docker.client.json.ContainerInfo;
 import org.eclipse.che.plugin.docker.client.json.ContainerListEntry;
+import org.eclipse.che.plugin.docker.client.json.ContainerState;
 import org.eclipse.che.plugin.docker.client.json.Event;
 import org.eclipse.che.plugin.docker.client.json.Filters;
 import org.eclipse.che.plugin.docker.client.json.HostConfig;
@@ -137,6 +139,7 @@ import io.fabric8.kubernetes.client.dsl.ExecWatch;
 import io.fabric8.kubernetes.client.dsl.LogWatch;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.utils.InputStreamPumper;
+import io.fabric8.kubernetes.client.utils.Utils;
 import io.fabric8.openshift.api.model.DeploymentConfig;
 import io.fabric8.openshift.api.model.DoneableDeploymentConfig;
 import io.fabric8.openshift.api.model.Image;
@@ -786,7 +789,8 @@ public class OpenShiftConnector extends DockerConnector {
             public void eventReceived(Action action, io.fabric8.kubernetes.api.model.Event event) {
                 if (event.getInvolvedObject().getKind().equals("Pod")
                         && event.getReason().equals("Killing")) {
-                    LOG.warn("***ACTION: {} \n ***EVENT: {}", action.toString(), event.toString());
+                    LOG.warn("***ACTION: {} \n ***EVENT: {}", action.toString(), event.toString()); //TODO
+                    handleOpenShiftEvent(event, messageProcessor);
                 }
             }
 
@@ -800,18 +804,47 @@ public class OpenShiftConnector extends DockerConnector {
                 waitForClose.countDown();
             }
         };
-        OpenShiftClient openShiftClient = new DefaultOpenShiftClient();
-        openShiftClient.events()
-                       .inNamespace(openShiftCheProjectName)
-                       .watch(eventWatcher);
-        try {
+
+        try (OpenShiftClient openShiftClient = new DefaultOpenShiftClient()) {
+
+            openShiftClient.events()
+                           .inNamespace(openShiftCheProjectName)
+                           .watch(eventWatcher);
             waitForClose.await();
         } catch (InterruptedException e) {
             LOG.error("Thread interrupted while waiting for eventWatcher.");
             Thread.currentThread().interrupt();
-        } finally {
-            openShiftClient.close();
         }
+    }
+
+    private void handleOpenShiftEvent(io.fabric8.kubernetes.api.model.Event event, MessageProcessor<Event> messageProcessor) {
+        String podName = event.getInvolvedObject().getName();
+        try (OpenShiftClient openShiftClient = new DefaultOpenShiftClient()) {
+
+            Pod involvedPod = openShiftClient.pods()
+                                             .inNamespace(openShiftCheProjectName)
+                                             .withName(podName).get();
+            if (involvedPod == null) {
+                return;
+            }
+
+            io.fabric8.kubernetes.api.model.ContainerState lastState =
+                    involvedPod.getStatus().getContainerStatuses().get(0).getLastState();
+
+            Event dockerEvent = new Event().withId(involvedPod.getMetadata().getName())
+                                           .withFrom(involvedPod.getSpec().getContainers().get(0).getImage())
+                                           .withType("container")
+                                           .withActor(new Actor().withId(involvedPod.getMetadata().getName())
+                                                                 .withAttributes(involvedPod.getMetadata().getLabels()))
+                                           .withTime(System.currentTimeMillis());
+            LOG.info("CREATED EVENT: {}", dockerEvent.toString());
+
+            if (lastState.getTerminated() != null && lastState.getTerminated().getReason().equals("OOMKilled")) {
+                messageProcessor.process(dockerEvent.withAction("oom").withStatus("oom"));
+            }
+            messageProcessor.process(dockerEvent.withAction("die").withStatus("die"));
+        }
+
     }
 
     @Override
