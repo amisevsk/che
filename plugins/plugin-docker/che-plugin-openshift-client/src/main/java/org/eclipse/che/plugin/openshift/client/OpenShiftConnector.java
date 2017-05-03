@@ -784,7 +784,10 @@ public class OpenShiftConnector extends DockerConnector {
                 new Watcher<io.fabric8.kubernetes.api.model.Event>() {
             @Override
             public void eventReceived(Action action, io.fabric8.kubernetes.api.model.Event event) {
-                // Do nothing;
+                if (event.getInvolvedObject().getKind().equals("Pod")
+                        && event.getReason().equals("Killing")) {
+                    LOG.warn("***ACTION: {} \n ***EVENT: {}", action.toString(), event.toString());
+                }
             }
 
             @Override
