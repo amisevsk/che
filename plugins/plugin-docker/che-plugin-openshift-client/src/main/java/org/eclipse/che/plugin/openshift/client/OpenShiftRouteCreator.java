@@ -13,7 +13,6 @@ package org.eclipse.che.plugin.openshift.client;
 import io.fabric8.openshift.api.model.DoneableRoute;
 import io.fabric8.openshift.api.model.Route;
 import io.fabric8.openshift.api.model.RouteFluent.SpecNested;
-import io.fabric8.openshift.client.DefaultOpenShiftClient;
 import io.fabric8.openshift.client.OpenShiftClient;
 
 import javax.inject.Singleton;
@@ -39,7 +38,7 @@ public class OpenShiftRouteCreator {
             throw new IllegalArgumentException("Property che.docker.ip.external must be set when using openshift.");
         }
 
-        try (OpenShiftClient openShiftClient = new DefaultOpenShiftClient()) {
+        try (OpenShiftClient openShiftClient = OpenShiftConnector.getOpenShiftClient()) {
             String routeName = generateRouteName(routeId, serverRef);
             String serviceHost = generateRouteHost(routeName, openShiftNamespaceExternalAddress);
 

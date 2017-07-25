@@ -22,7 +22,6 @@ import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeBuilder;
 import io.fabric8.kubernetes.api.model.VolumeMount;
 import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
-import io.fabric8.openshift.client.DefaultOpenShiftClient;
 import io.fabric8.openshift.client.OpenShiftClient;
 
 import org.slf4j.Logger;
@@ -173,7 +172,7 @@ public class OpenShiftPvcHelper {
                                    .build();
 
 
-        try (OpenShiftClient openShiftClient = new DefaultOpenShiftClient()){
+        try (OpenShiftClient openShiftClient = OpenShiftConnector.getOpenShiftClient()){
             openShiftClient.pods().inNamespace(projectNamespace).create(podSpec);
             boolean completed = false;
             while(!completed) {

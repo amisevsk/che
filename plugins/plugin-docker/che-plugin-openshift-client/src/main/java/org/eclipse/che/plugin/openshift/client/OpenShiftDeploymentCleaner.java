@@ -18,7 +18,6 @@ import java.util.concurrent.TimeUnit;
 import javax.inject.Singleton;
 
 import org.eclipse.che.plugin.openshift.client.exception.OpenShiftException;
-import org.eclipse.che.plugin.openshift.client.kubernetes.KubernetesResourceUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +33,6 @@ import io.fabric8.kubernetes.client.Watcher;
 import io.fabric8.kubernetes.client.dsl.FilterWatchListDeletable;
 import io.fabric8.kubernetes.client.dsl.ScalableResource;
 import io.fabric8.openshift.api.model.Route;
-import io.fabric8.openshift.client.DefaultOpenShiftClient;
 import io.fabric8.openshift.client.OpenShiftClient;
 
 @Singleton
@@ -49,7 +47,7 @@ public class OpenShiftDeploymentCleaner {
     }
 
     private void scaleDownDeployment(String deploymentName, final String namespace) throws OpenShiftException {
-        try (OpenShiftClient openShiftClient = new DefaultOpenShiftClient()) {
+        try (OpenShiftClient openShiftClient = OpenShiftConnector.getOpenShiftClient()) {
             ScalableResource<Deployment, DoneableDeployment> deployment = openShiftClient.extensions()
                            .deployments()
                            .inNamespace(namespace)
@@ -62,12 +60,12 @@ public class OpenShiftDeploymentCleaner {
     }
 
     private void cleanUpWorkspaceResources(final String deploymentName, final String namespace) throws IOException {
-        Deployment deployment = KubernetesResourceUtil.getDeploymentByName(deploymentName, namespace);
-        Service service = KubernetesResourceUtil.getServiceBySelector(OpenShiftConnector.OPENSHIFT_DEPLOYMENT_LABEL, deploymentName, namespace);
-        List<Route> routes = KubernetesResourceUtil.getRoutesByLabel(OpenShiftConnector.OPENSHIFT_DEPLOYMENT_LABEL, deploymentName, namespace);
-        List<ReplicaSet> replicaSets = KubernetesResourceUtil.getReplicaSetByLabel(OpenShiftConnector.OPENSHIFT_DEPLOYMENT_LABEL, deploymentName, namespace);
+        Deployment deployment = OpenShiftResourceUtil.getDeploymentByName(deploymentName, namespace);
+        Service service = OpenShiftResourceUtil.getServiceBySelector(OpenShiftConnector.OPENSHIFT_DEPLOYMENT_LABEL, deploymentName, namespace);
+        List<Route> routes = OpenShiftResourceUtil.getRoutesByLabel(OpenShiftConnector.OPENSHIFT_DEPLOYMENT_LABEL, deploymentName, namespace);
+        List<ReplicaSet> replicaSets = OpenShiftResourceUtil.getReplicaSetByLabel(OpenShiftConnector.OPENSHIFT_DEPLOYMENT_LABEL, deploymentName, namespace);
 
-        try (OpenShiftClient openShiftClient = new DefaultOpenShiftClient()) {
+        try (OpenShiftClient openShiftClient = OpenShiftConnector.getOpenShiftClient()) {
 
             if (deployment != null) {
                 LOG.info("Removing OpenShift Deployment {}", deployment.getMetadata().getName());
@@ -92,9 +90,9 @@ public class OpenShiftDeploymentCleaner {
             }
         }
     }
-    
+
     private void waitUntilWorkspacePodIsDeleted(final String deploymentName, final String namespace) throws OpenShiftException {
-        try (OpenShiftClient client = new DefaultOpenShiftClient()) {
+        try (OpenShiftClient client = OpenShiftConnector.getOpenShiftClient()) {
             FilterWatchListDeletable<Pod, PodList, Boolean, Watch, Watcher<Pod>> pods = client.pods()
                                                                                               .inNamespace(namespace)
                                                                                               .withLabel(OpenShiftConnector.OPENSHIFT_DEPLOYMENT_LABEL, deploymentName);

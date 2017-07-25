@@ -8,7 +8,7 @@
  * Contributors:
  *   Red Hat, Inc. - initial API and implementation
  *******************************************************************************/
-package org.eclipse.che.plugin.openshift.client.kubernetes;
+package org.eclipse.che.plugin.openshift.client;
 
 import java.io.IOException;
 import java.util.List;
@@ -22,17 +22,16 @@ import io.fabric8.kubernetes.api.model.extensions.Deployment;
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet;
 import io.fabric8.openshift.api.model.Route;
 import io.fabric8.openshift.api.model.RouteList;
-import io.fabric8.openshift.client.DefaultOpenShiftClient;
 import io.fabric8.openshift.client.OpenShiftClient;
 
-public final class KubernetesResourceUtil {
-    private static final Logger LOG = LoggerFactory.getLogger(KubernetesResourceUtil.class);
+public final class OpenShiftResourceUtil {
+    private static final Logger LOG = LoggerFactory.getLogger(OpenShiftResourceUtil.class);
 
-    private KubernetesResourceUtil() {
+    private OpenShiftResourceUtil() {
     }
 
     public static Deployment getDeploymentByName(String deploymentName, String namespace) throws IOException {
-        try (OpenShiftClient openShiftClient = new DefaultOpenShiftClient()) {
+        try (OpenShiftClient openShiftClient = OpenShiftConnector.getOpenShiftClient()) {
             Deployment deployment = openShiftClient.extensions().deployments().inNamespace(namespace)
                     .withName(deploymentName).get();
             if (deployment == null) {
@@ -44,7 +43,7 @@ public final class KubernetesResourceUtil {
 
     public static Service getServiceBySelector(final String selectorKey, final String selectorValue,
             final String namespace) {
-        try (OpenShiftClient openShiftClient = new DefaultOpenShiftClient()) {
+        try (OpenShiftClient openShiftClient = OpenShiftConnector.getOpenShiftClient()) {
             ServiceList svcs = openShiftClient.services().inNamespace(namespace).list();
 
             Service svc = svcs.getItems().stream().filter(s -> s.getSpec().getSelector().containsKey(selectorKey))
@@ -60,7 +59,7 @@ public final class KubernetesResourceUtil {
 
     public static List<Route> getRoutesByLabel(final String labelKey, final String labelValue, final String namespace)
             throws IOException {
-        try (OpenShiftClient openShiftClient = new DefaultOpenShiftClient()) {
+        try (OpenShiftClient openShiftClient = OpenShiftConnector.getOpenShiftClient()) {
             RouteList routeList = openShiftClient.routes().inNamespace(namespace).withLabel(labelKey, labelValue)
                     .list();
 
@@ -76,7 +75,7 @@ public final class KubernetesResourceUtil {
     }
 
     public static List<ReplicaSet> getReplicaSetByLabel(final String key, final String value, final String namespace) {
-        try (OpenShiftClient openShiftClient = new DefaultOpenShiftClient()) {
+        try (OpenShiftClient openShiftClient = OpenShiftConnector.getOpenShiftClient()) {
             List<ReplicaSet> replicaSets = openShiftClient.extensions()
                                                           .replicaSets()
                                                           .inNamespace(namespace)
