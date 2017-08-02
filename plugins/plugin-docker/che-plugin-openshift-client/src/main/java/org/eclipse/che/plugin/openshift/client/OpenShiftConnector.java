@@ -354,6 +354,14 @@ public class OpenShiftConnector extends DockerConnector {
         Set<String> exposedPorts = getExposedPorts(containerExposedPorts, imageExposedPorts);
 
         String[] envVariables = createContainerParams.getContainerConfig().getEnv();
+
+        // Replace CHE_API env var with ClusterIP for che-host
+        String cheHostClusterIp = getCheHostClusterIp();
+        for (int i = 0; i < envVariables.length; i++) {
+            if (envVariables[i].contains("CHE_API")) {
+                envVariables[i] = envVariables[i].replaceAll("che-host", cheHostClusterIp);
+            }
+        }
         String[] volumes = createContainerParams.getContainerConfig().getHostConfig().getBinds();
 
         Map<String, String> additionalLabels = createContainerParams.getContainerConfig().getLabels();
@@ -1623,4 +1631,13 @@ public class OpenShiftConnector extends DockerConnector {
         return deploymentName;
     }
 
+    /**
+     * TODO
+     * @return
+     */
+    private String getCheHostClusterIp() {
+        try (OpenShiftClient client = new DefaultOpenShiftClient()) {
+            return client.services().withName("che-host").get().getSpec().getClusterIP();
+        }
+    }
 }
