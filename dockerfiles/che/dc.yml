@@ -1,0 +1,249 @@
+apiVersion: v1
+kind: DeploymentConfig
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: '{"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"che","creationTimestamp":null,"labels":{"project":"che","provider":"fabric8"}},"spec":{"strategy":{"type":"Recreate","resources":{}},"triggers":null,"replicas":1,"test":false,"selector":{"app":"che","provider":"fabric8"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"che","provider":"fabric8"}},"spec":{"volumes":[{"name":"che-data-volume","persistentVolumeClaim":{"claimName":"che-data-volume"}}],"containers":[{"name":"che","image":"rhche/che-server:local","ports":[{"name":"http","containerPort":8080},{"name":"http-debug","containerPort":8000}],"env":[{"name":"CHE_DOCKER_IP_EXTERNAL","valueFrom":{"configMapKeyRef":{"name":"che","key":"hostname-http"}}},{"name":"CHE_WORKSPACE_STORAGE","valueFrom":{"configMapKeyRef":{"name":"che","key":"workspace-storage"}}},{"name":"CHE_LOGS_DIR","valueFrom":{"configMapKeyRef":{"name":"che","key":"che.logs.dir"}}},{"name":"CHE_WORKSPACE_STORAGE_CREATE_FOLDERS","valueFrom":{"configMapKeyRef":{"name":"che","key":"workspace-storage-create-folders"}}},{"name":"CHE_LOCAL_CONF_DIR","valueFrom":{"configMapKeyRef":{"name":"che","key":"local-conf-dir"}}},{"name":"CHE_OPENSHIFT_PROJECT","valueFrom":{"fieldRef":{"fieldPath":"metadata.namespace"}}},{"name":"CHE_OPENSHIFT_SERVICEACCOUNTNAME","valueFrom":{"configMapKeyRef":{"name":"che","key":"openshift-serviceaccountname"}}},{"name":"CHE_DOCKER_SERVER__EVALUATION__STRATEGY","valueFrom":{"configMapKeyRef":{"name":"che","key":"che-server-evaluation-strategy"}}},{"name":"CHE_DOCKER_SERVER__EVALUATION__STRATEGY_CUSTOM_TEMPLATE","valueFrom":{"configMapKeyRef":{"name":"che","key":"che.docker.server_evaluation_strategy.custom.template"}}},{"name":"CHE_DOCKER_SERVER__EVALUATION__STRATEGY_CUSTOM_EXTERNAL_PROTOCOL","valueFrom":{"configMapKeyRef":{"name":"che","key":"che.docker.server_evaluation_strategy.custom.external.protocol"}}},{"name":"CHE_PREDEFINED_STACKS_RELOAD__ON__START","valueFrom":{"configMapKeyRef":{"name":"che","key":"che.predefined.stacks.reload_on_start"}}},{"name":"CHE_LOG_LEVEL","valueFrom":{"configMapKeyRef":{"name":"che","key":"log-level"}}},{"name":"CHE_PORT","valueFrom":{"configMapKeyRef":{"name":"che","key":"port"}}},{"name":"CHE_DOCKER_CONNECTOR","valueFrom":{"configMapKeyRef":{"name":"che","key":"docker-connector"}}},{"name":"CHE_DEBUG_SERVER","valueFrom":{"configMapKeyRef":{"name":"che","key":"remote-debugging-enabled"}}},{"name":"CHE_OAUTH_GITHUB_FORCEACTIVATION","valueFrom":{"configMapKeyRef":{"name":"che","key":"che-oauth-github-forceactivation"}}},{"name":"CHE_OPENSHIFT_WORKSPACE_MEMORY_OVERRIDE","valueFrom":{"configMapKeyRef":{"name":"che","key":"workspaces-memory-limit"}}},{"name":"CHE_OPENSHIFT_WORKSPACE_MEMORY_REQUEST","valueFrom":{"configMapKeyRef":{"name":"che","key":"workspaces-memory-request"}}},{"name":"CHE_WORKSPACE_AUTO_START","valueFrom":{"configMapKeyRef":{"name":"che","key":"enable-workspaces-autostart"}}},{"name":"JAVA_OPTS","valueFrom":{"configMapKeyRef":{"name":"che","key":"che-server-java-opts"}}},{"name":"CHE_WORKSPACE_JAVA_OPTIONS","valueFrom":{"configMapKeyRef":{"name":"che","key":"che-workspaces-java-opts"}}},{"name":"CHE_OPENSHIFT_SECURE_ROUTES","valueFrom":{"configMapKeyRef":{"name":"che","key":"che-openshift-secure-routes"}}},{"name":"CHE_DOCKER_SERVER__EVALUATION__STRATEGY_SECURE_EXTERNAL_URLS","valueFrom":{"configMapKeyRef":{"name":"che","key":"che-secure-external-urls"}}},{"name":"CHE_OPENSHIFT_SERVER_INACTIVE_STOP_TIMEOUT_MS","valueFrom":{"configMapKeyRef":{"name":"che","key":"che-server-timeout-ms"}}},{"name":"CHE_OPENSHIFT_PRECREATE_WORKSPACE_DIRS","valueFrom":{"configMapKeyRef":{"name":"che","key":"che-openshift-precreate-subpaths"}}},{"name":"CHE_KEYCLOAK_OSO_ENDPOINT","valueFrom":{"configMapKeyRef":{"name":"che","key":"keycloak-oso-endpoint"}}},{"name":"CHE_KEYCLOAK_GITHUB_ENDPOINT","valueFrom":{"configMapKeyRef":{"name":"che","key":"keycloak-github-endpoint"}}},{"name":"CHE_KEYCLOAK_DISABLED","valueFrom":{"configMapKeyRef":{"name":"che","key":"keycloak-disabled"}}},{"name":"CHE_WORKSPACE_AUTO__SNAPSHOT","valueFrom":{"configMapKeyRef":{"name":"che","key":"che-workspace-auto-snapshot"}}}],"resources":{"limits":{"memory":"700Mi"},"requests":{"memory":"256Mi"}},"volumeMounts":[{"name":"che-data-volume","mountPath":"/data"}],"livenessProbe":{"httpGet":{"path":"/api/system/state","port":8080,"scheme":"HTTP"},"initialDelaySeconds":120,"timeoutSeconds":10},"readinessProbe":{"httpGet":{"path":"/api/system/state","port":8080,"scheme":"HTTP"},"initialDelaySeconds":60,"timeoutSeconds":10},"imagePullPolicy":"IfNotPresent"}],"serviceAccountName":"che"}}},"status":{"latestVersion":0,"observedGeneration":0,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0}}'
+  creationTimestamp: null
+  generation: 1
+  labels:
+    app: che
+    provider: fabric8
+  name: che
+spec:
+  paused: true
+  replicas: 1
+  selector:
+    app: che
+    provider: fabric8
+  strategy:
+    activeDeadlineSeconds: 21600
+    recreateParams:
+      timeoutSeconds: 600
+    resources: {}
+    type: Recreate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: che
+        provider: fabric8
+    spec:
+      containers:
+      - env:
+        - name: CHE_DOCKER_IP_EXTERNAL
+          valueFrom:
+            configMapKeyRef:
+              key: hostname-http
+              name: che
+        - name: CHE_WORKSPACE_STORAGE
+          valueFrom:
+            configMapKeyRef:
+              key: workspace-storage
+              name: che
+        - name: CHE_LOGS_DIR
+          valueFrom:
+            configMapKeyRef:
+              key: che.logs.dir
+              name: che
+        - name: CHE_WORKSPACE_STORAGE_CREATE_FOLDERS
+          valueFrom:
+            configMapKeyRef:
+              key: workspace-storage-create-folders
+              name: che
+        - name: CHE_LOCAL_CONF_DIR
+          valueFrom:
+            configMapKeyRef:
+              key: local-conf-dir
+              name: che
+        - name: CHE_OPENSHIFT_PROJECT
+          value: eclipse-che
+        - name: CHE_OPENSHIFT_SERVICEACCOUNTNAME
+          valueFrom:
+            configMapKeyRef:
+              key: openshift-serviceaccountname
+              name: che
+        - name: CHE_DOCKER_SERVER__EVALUATION__STRATEGY
+          valueFrom:
+            configMapKeyRef:
+              key: che-server-evaluation-strategy
+              name: che
+        - name: CHE_DOCKER_SERVER__EVALUATION__STRATEGY_CUSTOM_TEMPLATE
+          valueFrom:
+            configMapKeyRef:
+              key: che.docker.server_evaluation_strategy.custom.template
+              name: che
+        - name: CHE_DOCKER_SERVER__EVALUATION__STRATEGY_CUSTOM_EXTERNAL_PROTOCOL
+          valueFrom:
+            configMapKeyRef:
+              key: che.docker.server_evaluation_strategy.custom.external.protocol
+              name: che
+        - name: CHE_PREDEFINED_STACKS_RELOAD__ON__START
+          valueFrom:
+            configMapKeyRef:
+              key: che.predefined.stacks.reload_on_start
+              name: che
+        - name: CHE_LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              key: log-level
+              name: che
+        - name: CHE_PORT
+          valueFrom:
+            configMapKeyRef:
+              key: port
+              name: che
+        - name: CHE_DOCKER_CONNECTOR
+          valueFrom:
+            configMapKeyRef:
+              key: docker-connector
+              name: che
+        - name: CHE_DEBUG_SERVER
+          valueFrom:
+            configMapKeyRef:
+              key: remote-debugging-enabled
+              name: che
+        - name: CHE_OAUTH_GITHUB_FORCEACTIVATION
+          valueFrom:
+            configMapKeyRef:
+              key: che-oauth-github-forceactivation
+              name: che
+        - name: CHE_OPENSHIFT_WORKSPACE_MEMORY_OVERRIDE
+          valueFrom:
+            configMapKeyRef:
+              key: workspaces-memory-limit
+              name: che
+        - name: CHE_OPENSHIFT_WORKSPACE_MEMORY_REQUEST
+          valueFrom:
+            configMapKeyRef:
+              key: workspaces-memory-request
+              name: che
+        - name: CHE_WORKSPACE_AUTO_START
+          valueFrom:
+            configMapKeyRef:
+              key: enable-workspaces-autostart
+              name: che
+        - name: JAVA_OPTS
+          valueFrom:
+            configMapKeyRef:
+              key: che-server-java-opts
+              name: che
+        - name: CHE_WORKSPACE_JAVA_OPTIONS
+          valueFrom:
+            configMapKeyRef:
+              key: che-workspaces-java-opts
+              name: che
+        - name: CHE_OPENSHIFT_SECURE_ROUTES
+          valueFrom:
+            configMapKeyRef:
+              key: che-openshift-secure-routes
+              name: che
+        - name: CHE_DOCKER_SERVER__EVALUATION__STRATEGY_SECURE_EXTERNAL_URLS
+          valueFrom:
+            configMapKeyRef:
+              key: che-secure-external-urls
+              name: che
+        - name: CHE_OPENSHIFT_SERVER_INACTIVE_STOP_TIMEOUT_MS
+          valueFrom:
+            configMapKeyRef:
+              key: che-server-timeout-ms
+              name: che
+        - name: CHE_OPENSHIFT_PRECREATE_WORKSPACE_DIRS
+          valueFrom:
+            configMapKeyRef:
+              key: che-openshift-precreate-subpaths
+              name: che
+        - name: CHE_KEYCLOAK_OSO_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              key: keycloak-oso-endpoint
+              name: che
+        - name: CHE_KEYCLOAK_GITHUB_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              key: keycloak-github-endpoint
+              name: che
+        - name: CHE_KEYCLOAK_DISABLED
+          valueFrom:
+            configMapKeyRef:
+              key: keycloak-disabled
+              name: che
+        - name: CHE_WORKSPACE_AUTO__SNAPSHOT
+          valueFrom:
+            configMapKeyRef:
+              key: che-workspace-auto-snapshot
+              name: che
+        - name: CHE_HOST
+          value: 192.168.42.175
+        - name: CHE_INFRA_OPENSHIFT_MASTER__URL
+          value: https://192.168.42.175:8443
+        - name: CHE_INFRA_OPENSHIFT_USERNAME
+          value: eclipse
+        - name: CHE_INFRA_OPENSHIFT_PASSWORD
+          value: devel
+        - name: CHE_INFRA_OPENSHIFT_CHE__SERVER__ENDPOINT
+          value: http://192.168.42.175:8443/wsmaster/api
+        - name: CHE_INFRA_OPENSHIFT_CHE__SERVER__WEBSOCKET__ENDPOINT__BASE
+          value: ws://192.168.42.175:8443/wsmaster
+        - name: CHE_INFRA_OPENSHIFT_MACHINE__START__TIMEOUT
+          value: "5"
+        - name: CHE_INFRA_OPENSHIFT_BOOTSTRAPPER_BINARY__URL
+          value: https://192.168.42.175:8443/agent-binaries/linux_amd64/bootstrapper
+        image: rhche/che-server:local
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/system/state
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 10
+        name: che
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 8000
+          name: http-debug
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/system/state
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 10
+        resources:
+          limits:
+            memory: 700Mi
+          requests:
+            memory: 256Mi
+        terminationMessagePath: /dev/termination-log
+        volumeMounts:
+        - mountPath: /data
+          name: che-data-volume
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext: {}
+      serviceAccount: che
+      serviceAccountName: che
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: che-data-volume
+        persistentVolumeClaim:
+          claimName: che-data-volume
+  test: false
+  triggers:
+  - type: ConfigChange
+status:
+  availableReplicas: 0
+  latestVersion: 0
+  observedGeneration: 0
+  replicas: 0
+  unavailableReplicas: 0
+  updatedReplicas: 0

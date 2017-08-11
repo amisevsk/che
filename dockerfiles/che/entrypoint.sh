@@ -65,6 +65,7 @@ Variables:
   DEFAULT_CHE_DEBUG_SERVER=false
   CHE_DEBUG_SERVER=${CHE_DEBUG_SERVER:-${DEFAULT_CHE_DEBUG_SERVER}}
 
+  export JPDA_OPTS="-Xdebug -Xrunjdwp:transport=$JPDA_TRANSPORT,address=$JPDA_ADDRESS,server=y,suspend=y"
 }
 
 error () {
