@@ -219,6 +219,9 @@ public class WsMasterModule extends AbstractModule {
     bind(org.eclipse.che.api.workspace.server.event.RuntimeLogJsonRpcMessenger.class)
         .asEagerSingleton();
 
+    bind(org.eclipse.che.workspace.infrastructure.kubernetes.timing.TimingLoggerListener.class)
+        .asEagerSingleton();
+
     bind(org.eclipse.che.security.oauth.OAuthAuthenticatorProvider.class)
         .to(org.eclipse.che.security.oauth.OAuthAuthenticatorProviderImpl.class);
 
