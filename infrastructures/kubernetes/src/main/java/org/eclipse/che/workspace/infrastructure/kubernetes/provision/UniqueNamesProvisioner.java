@@ -24,6 +24,7 @@ import io.fabric8.kubernetes.api.model.extensions.Ingress;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.inject.Singleton;
@@ -98,13 +99,14 @@ public class UniqueNamesProvisioner<T extends KubernetesEnvironment>
         container
             .getEnv()
             .stream()
+            .filter(
+                env ->
+                    env.getValueFrom() != null && env.getValueFrom().getConfigMapKeyRef() != null)
             .forEach(
                 env -> {
                   ConfigMapKeySelector configMap = env.getValueFrom().getConfigMapKeyRef();
-                  if (configMap != null) {
-                    String originalName = configMap.getName();
-                    configMap.setName(configMapNameTranslation.get(originalName));
-                  }
+                  String originalName = configMap.getName();
+                  configMap.setName(configMapNameTranslation.get(originalName));
                 });
       }
       if (container.getEnvFrom() != null) {
@@ -112,23 +114,27 @@ public class UniqueNamesProvisioner<T extends KubernetesEnvironment>
         container
             .getEnvFrom()
             .stream()
+            .filter(envFrom -> envFrom.getConfigMapRef() != null)
             .forEach(
                 envFrom -> {
                   ConfigMapEnvSource configMapRef = envFrom.getConfigMapRef();
-                  if (configMapRef != null) {
-                    String originalName = configMapRef.getName();
-                    configMapRef.setName(configMapNameTranslation.get(originalName));
-                  }
+                  String originalName = configMapRef.getName();
+                  configMapRef.setName(configMapNameTranslation.get(originalName));
                 });
       }
     }
     // Next update any mounted configMaps
-    for (Volume volume : pod.getSpec().getVolumes()) {
-      ConfigMapVolumeSource configMapVolume = volume.getConfigMap();
-      if (configMapVolume != null) {
-        String originalName = configMapVolume.getName();
-        configMapVolume.setName(configMapNameTranslation.get(originalName));
-      }
+    List<Volume> volumes = pod.getSpec().getVolumes();
+    if (pod.getSpec().getVolumes() != null) {
+      volumes
+          .stream()
+          .filter(vol -> vol.getConfigMap() != null)
+          .forEach(
+              volume -> {
+                ConfigMapVolumeSource configMapVolume = volume.getConfigMap();
+                String originalName = configMapVolume.getName();
+                configMapVolume.setName(configMapNameTranslation.get(originalName));
+              });
     }
   }
 }
