@@ -54,6 +54,8 @@ public class UniqueNamesProvisioner<T extends KubernetesEnvironment>
     final Collection<PodSpecAndMeta> podData = k8sEnv.getPodData().values();
     for (PodSpecAndMeta pod : podData) { // TODO This is pretty janky
       final ObjectMeta podMeta = pod.getMetadata();
+      final String podName = Names.uniquePodName(podMeta.getName(), workspaceId);
+      podMeta.setName(podName);
       putLabel(podMeta, Constants.CHE_ORIGINAL_NAME_LABEL, podMeta.getName());
     }
     

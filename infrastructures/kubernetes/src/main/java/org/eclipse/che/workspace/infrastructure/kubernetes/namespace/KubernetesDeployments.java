@@ -155,6 +155,7 @@ public class KubernetesDeployments {
     putLabel(podMeta, CHE_WORKSPACE_ID_LABEL, workspaceId);
     putLabel(podMeta, CHE_DEPLOYMENT_NAME_LABEL, originalName);
     deployment.getSpec().getSelector().setMatchLabels(podMeta.getLabels());
+    deployment.getMetadata().setName(originalName); // TODO: Janky Janky Janky
     
     PodSpec podSpec = deployment.getSpec().getTemplate().getSpec(); // TODO Is this necessary?
     podSpec.setRestartPolicy("Always");
