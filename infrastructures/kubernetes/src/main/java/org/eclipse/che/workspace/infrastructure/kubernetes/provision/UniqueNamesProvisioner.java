@@ -12,13 +12,15 @@
 package org.eclipse.che.workspace.infrastructure.kubernetes.provision;
 
 import static org.eclipse.che.workspace.infrastructure.kubernetes.namespace.KubernetesObjectUtil.putLabel;
-
+import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodSpec;
 import io.fabric8.kubernetes.api.model.extensions.Ingress;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import javax.inject.Singleton;
 import org.eclipse.che.api.core.model.workspace.runtime.RuntimeIdentity;
@@ -54,9 +56,9 @@ public class UniqueNamesProvisioner<T extends KubernetesEnvironment>
     final Collection<PodSpecAndMeta> podData = k8sEnv.getPodData().values();
     for (PodSpecAndMeta pod : podData) { // TODO This is pretty janky
       final ObjectMeta podMeta = pod.getMetadata();
+      putLabel(podMeta, Constants.CHE_ORIGINAL_NAME_LABEL, podMeta.getName());
       final String podName = Names.uniquePodName(podMeta.getName(), workspaceId);
       podMeta.setName(podName);
-      putLabel(podMeta, Constants.CHE_ORIGINAL_NAME_LABEL, podMeta.getName());
     }
     
     final Set<Ingress> ingresses = new HashSet<>(k8sEnv.getIngresses().values());

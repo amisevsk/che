@@ -152,14 +152,15 @@ public class KubernetesDeployments {
   public Pod deploy(Deployment deployment) throws InfrastructureException {
     ObjectMeta podMeta = deployment.getSpec().getTemplate().getMetadata();
     String originalName = podMeta.getName();
-    putLabel(podMeta, CHE_WORKSPACE_ID_LABEL, workspaceId);
-    putLabel(podMeta, CHE_DEPLOYMENT_NAME_LABEL, originalName);
-    deployment.getSpec().getSelector().setMatchLabels(podMeta.getLabels());
     deployment.getMetadata().setName(originalName); // TODO: Janky Janky Janky
+    putLabel(podMeta, CHE_WORKSPACE_ID_LABEL, workspaceId);
+    putLabel(podMeta, CHE_DEPLOYMENT_NAME_LABEL, deployment.getMetadata().getName());
+    putLabel(deployment.getMetadata(), CHE_WORKSPACE_ID_LABEL, workspaceId);
+    deployment.getSpec().getSelector().setMatchLabels(podMeta.getLabels());
     
     PodSpec podSpec = deployment.getSpec().getTemplate().getSpec(); // TODO Is this necessary?
     podSpec.setRestartPolicy("Always");
-    return createDeployment(deployment, workspaceId, originalName);
+    return createDeployment(deployment, workspaceId, deployment.getMetadata().getName());
   }
 
   private Pod createDeployment(Deployment deployment, String workspaceId, String originalName) 
