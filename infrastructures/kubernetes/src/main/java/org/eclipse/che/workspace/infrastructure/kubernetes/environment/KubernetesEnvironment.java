@@ -12,10 +12,14 @@
 package org.eclipse.che.workspace.infrastructure.kubernetes.environment;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodSpec;
+import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.Service;
+import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.extensions.Ingress;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,6 +30,7 @@ import org.eclipse.che.api.core.model.workspace.config.Command;
 import org.eclipse.che.api.workspace.server.spi.environment.InternalEnvironment;
 import org.eclipse.che.api.workspace.server.spi.environment.InternalMachineConfig;
 import org.eclipse.che.api.workspace.server.spi.environment.InternalRecipe;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Holds objects of Kubernetes environment.
@@ -37,6 +42,8 @@ public class KubernetesEnvironment extends InternalEnvironment {
   public static final String TYPE = "kubernetes";
 
   private final Map<String, Pod> pods;
+  private final Map<String, Deployment> deployments;
+  private final Map<String, PodSpecAndMeta> podData; //TODO: Docs
   private final Map<String, Service> services;
   private final Map<String, Ingress> ingresses;
   private final Map<String, PersistentVolumeClaim> persistentVolumeClaims;
@@ -62,6 +69,8 @@ public class KubernetesEnvironment extends InternalEnvironment {
     this(
         k8sEnv,
         k8sEnv.getPods(),
+        k8sEnv.getDeployments(),
+        k8sEnv.getPodData(),
         k8sEnv.getServices(),
         k8sEnv.getIngresses(),
         k8sEnv.getPersistentVolumeClaims(),
@@ -72,6 +81,8 @@ public class KubernetesEnvironment extends InternalEnvironment {
   protected KubernetesEnvironment(
       InternalEnvironment internalEnvironment,
       Map<String, Pod> pods,
+      Map<String, Deployment> deployments,
+      Map<String, PodSpecAndMeta> podData,
       Map<String, Service> services,
       Map<String, Ingress> ingresses,
       Map<String, PersistentVolumeClaim> persistentVolumeClaims,
@@ -80,6 +91,8 @@ public class KubernetesEnvironment extends InternalEnvironment {
     super(internalEnvironment);
     setType(TYPE);
     this.pods = pods;
+    this.deployments = deployments;
+    this.podData = podData;
     this.services = services;
     this.ingresses = ingresses;
     this.persistentVolumeClaims = persistentVolumeClaims;
@@ -92,6 +105,8 @@ public class KubernetesEnvironment extends InternalEnvironment {
       Map<String, InternalMachineConfig> machines,
       List<Warning> warnings,
       Map<String, Pod> pods,
+      Map<String, Deployment> deployments,
+      Map<String, PodSpecAndMeta> podData,
       Map<String, Service> services,
       Map<String, Ingress> ingresses,
       Map<String, PersistentVolumeClaim> persistentVolumeClaims,
@@ -100,6 +115,8 @@ public class KubernetesEnvironment extends InternalEnvironment {
     super(internalRecipe, machines, warnings);
     setType(TYPE);
     this.pods = pods;
+    this.deployments = deployments;
+    this.podData = podData;
     this.services = services;
     this.ingresses = ingresses;
     this.persistentVolumeClaims = persistentVolumeClaims;
@@ -114,7 +131,20 @@ public class KubernetesEnvironment extends InternalEnvironment {
 
   /** Returns pods that should be created when environment starts. */
   public Map<String, Pod> getPods() {
-    return pods;
+    return ImmutableMap.copyOf(pods);
+  }
+  
+  public Map<String, PodSpecAndMeta> getPodData() {
+    return ImmutableMap.copyOf(podData);
+  }
+  
+  public Map<String, Deployment> getDeployments() {
+    return ImmutableMap.copyOf(deployments);
+  }
+  
+  public void addPod(String key, Pod pod) {
+    pods.put(key, pod);
+    podData.put(key, new PodSpecAndMeta(pod.getSpec(), pod.getMetadata()));
   }
 
   /** Returns services that should be created when environment starts. */
@@ -146,6 +176,8 @@ public class KubernetesEnvironment extends InternalEnvironment {
     protected final InternalEnvironment internalEnvironment;
 
     protected final Map<String, Pod> pods = new HashMap<>();
+    protected final Map<String, Deployment> deployments = new HashMap<>();
+    protected final Map<String, PodSpecAndMeta> podData = new HashMap<>();
     protected final Map<String, Service> services = new HashMap<>();
     protected final Map<String, Ingress> ingresses = new HashMap<>();
     protected final Map<String, PersistentVolumeClaim> pvcs = new HashMap<>();
@@ -183,6 +215,19 @@ public class KubernetesEnvironment extends InternalEnvironment {
 
     public Builder setPods(Map<String, Pod> pods) {
       this.pods.putAll(pods);
+      pods.entrySet().forEach(e -> {
+        Pod pod = e.getValue();
+        podData.put(e.getKey(), new PodSpecAndMeta(pod.getSpec(), pod.getMetadata()));
+      });
+      return this;
+    }
+    
+    public Builder setDeployments(Map<String, Deployment> deployments) {
+      this.deployments.putAll(deployments);
+      deployments.entrySet().forEach(e -> {
+        PodTemplateSpec podTemplate = e.getValue().getSpec().getTemplate();
+        podData.put(e.getKey(), new PodSpecAndMeta(podTemplate.getSpec(), podTemplate.getMetadata()));
+      });
       return this;
     }
 
@@ -218,7 +263,25 @@ public class KubernetesEnvironment extends InternalEnvironment {
 
     public KubernetesEnvironment build() {
       return new KubernetesEnvironment(
-          internalEnvironment, pods, services, ingresses, pvcs, secrets, configMaps);
+          internalEnvironment, pods, deployments, podData, services, ingresses, pvcs, secrets, configMaps);
+    }
+  }
+  
+  public static class PodSpecAndMeta {
+    private PodSpec podSpec;
+    private ObjectMeta podMeta;
+    
+    public PodSpecAndMeta(PodSpec podSpec, ObjectMeta podMeta) {
+      this.podSpec = podSpec;
+      this.podMeta = podMeta;
+    }
+    
+    public PodSpec getSpec() {
+      return podSpec;
+    }
+    
+    public ObjectMeta getMetadata() {
+      return podMeta;
     }
   }
 }

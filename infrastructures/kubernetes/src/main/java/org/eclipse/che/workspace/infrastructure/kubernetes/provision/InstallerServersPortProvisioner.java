@@ -37,6 +37,7 @@ import org.eclipse.che.commons.lang.Pair;
 import org.eclipse.che.commons.tracing.TracingTags;
 import org.eclipse.che.workspace.infrastructure.kubernetes.Names;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 
 /**
  * Fixes installers servers ports if conflicts are present.
@@ -76,7 +77,7 @@ public class InstallerServersPortProvisioner implements ConfigurationProvisioner
 
     TracingTags.WORKSPACE_ID.set(identity::getWorkspaceId);
 
-    for (Pod pod : k8sEnv.getPods().values()) {
+    for (PodSpecAndMeta pod : k8sEnv.getPodData().values()) {
       // it is needed to detect conflicts between all containers in a pod
       // because they use the same ports
       List<InternalMachineConfig> podMachines =

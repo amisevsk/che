@@ -27,6 +27,7 @@ import io.fabric8.kubernetes.api.model.VolumeMount;
 import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 import java.util.HashMap;
 import java.util.Map;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 
 /**
  * Helps to work with Kubernetes objects.
@@ -45,6 +46,15 @@ public class KubernetesObjectUtil {
       target.setMetadata(metadata = new ObjectMeta());
     }
 
+    putLabel(target.getMetadata(), key, value);
+  }
+  
+  public static void putLabel(PodSpecAndMeta target, String key, String value) {
+    ObjectMeta metadata = target.getMetadata();
+    putLabel(metadata, key, value); // TODO: NPE?
+  }
+  
+  public static void putLabel(ObjectMeta metadata, String key, String value) {
     Map<String, String> labels = metadata.getLabels();
     if (labels == null) {
       metadata.setLabels(labels = new HashMap<>());

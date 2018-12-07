@@ -25,6 +25,7 @@ import org.eclipse.che.api.workspace.server.spi.environment.InternalMachineConfi
 import org.eclipse.che.api.workspace.server.wsplugins.model.PluginMeta;
 import org.eclipse.che.workspace.infrastructure.kubernetes.Names;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 import org.eclipse.che.workspace.infrastructure.kubernetes.wsplugins.brokerphases.BrokerEnvironmentFactory;
 
 /**
@@ -58,18 +59,18 @@ public class KubernetesBrokerInitContainerApplier<E extends KubernetesEnvironmen
     E brokerEnvironment =
         brokerEnvironmentFactory.create(pluginsMeta, runtimeID, new BrokersResult());
 
-    Map<String, Pod> workspacePods = workspaceEnvironment.getPods();
+    Map<String, PodSpecAndMeta> workspacePods = workspaceEnvironment.getPodData();
     if (workspacePods.size() != 1) {
       throw new InfrastructureException(
           "Che plugins tooling configuration can be applied to a workspace with one pod only.");
     }
-    Pod workspacePod = workspacePods.values().iterator().next();
+    PodSpecAndMeta workspacePod = workspacePods.values().iterator().next();
 
-    Map<String, Pod> brokerPods = brokerEnvironment.getPods();
+    Map<String, PodSpecAndMeta> brokerPods = brokerEnvironment.getPodData();
     if (brokerPods.size() != 1) {
       throw new InfrastructureException("Broker environment must have only one Pod.");
     }
-    Pod brokerPod = brokerPods.values().iterator().next();
+    PodSpecAndMeta brokerPod = brokerPods.values().iterator().next();
 
     // Add broker machines to workspace environment so that the init containers can be provisioned.
     List<Container> brokerContainers = brokerPod.getSpec().getContainers();

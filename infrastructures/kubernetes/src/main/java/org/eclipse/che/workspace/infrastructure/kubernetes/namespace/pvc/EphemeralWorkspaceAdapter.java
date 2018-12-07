@@ -29,6 +29,7 @@ import org.eclipse.che.api.core.model.workspace.runtime.RuntimeIdentity;
 import org.eclipse.che.api.workspace.server.spi.InfrastructureException;
 import org.eclipse.che.workspace.infrastructure.kubernetes.Names;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 
 /**
  * Allows to create ephemeral workspaces (with no PVC attached) based on workspace config
@@ -46,7 +47,7 @@ public class EphemeralWorkspaceAdapter {
 
   public void provision(KubernetesEnvironment k8sEnv, RuntimeIdentity identity)
       throws InfrastructureException {
-    for (Pod pod : k8sEnv.getPods().values()) {
+    for (PodSpecAndMeta pod : k8sEnv.getPodData().values()) {
       PodSpec podSpec = pod.getSpec();
 
       // To ensure same volumes get mounted correctly in different containers, we need to track

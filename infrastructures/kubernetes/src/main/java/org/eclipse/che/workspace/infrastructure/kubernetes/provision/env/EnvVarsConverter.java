@@ -23,6 +23,7 @@ import org.eclipse.che.commons.annotation.Traced;
 import org.eclipse.che.commons.tracing.TracingTags;
 import org.eclipse.che.workspace.infrastructure.kubernetes.Names;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 import org.eclipse.che.workspace.infrastructure.kubernetes.provision.ConfigurationProvisioner;
 
 /**
@@ -39,7 +40,7 @@ public class EnvVarsConverter implements ConfigurationProvisioner {
 
     TracingTags.WORKSPACE_ID.set(identity::getWorkspaceId);
 
-    for (Pod pod : k8sEnv.getPods().values()) {
+    for (PodSpecAndMeta pod : k8sEnv.getPodData().values()) {
       for (Container container : pod.getSpec().getContainers()) {
         String machineName = Names.machineName(pod, container);
         InternalMachineConfig machineConf = k8sEnv.getMachines().get(machineName);

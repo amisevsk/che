@@ -29,6 +29,7 @@ import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodSpec;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.api.model.apps.DoneableDeployment;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.Watch;
@@ -131,6 +132,37 @@ public class KubernetesDeployments {
 
     PodSpec podSpec = pod.getSpec();
     podSpec.setRestartPolicy("Always"); // Only allowable value
+    
+    Deployment deployment = new DeploymentBuilder()
+        .withMetadata(metadata)
+        .withNewSpec()
+        .withNewSelector()
+        .withMatchLabels(metadata.getLabels())
+        .endSelector()
+        .withReplicas(1)
+        .withNewTemplate()
+        .withMetadata(metadata)
+        .withSpec(podSpec)
+        .endTemplate()
+        .endSpec()
+        .build();
+    return createDeployment(deployment, workspaceId, originalName);
+  }
+  
+  public Pod deploy(Deployment deployment) throws InfrastructureException {
+    ObjectMeta podMeta = deployment.getSpec().getTemplate().getMetadata();
+    String originalName = podMeta.getName();
+    putLabel(podMeta, CHE_WORKSPACE_ID_LABEL, workspaceId);
+    putLabel(podMeta, CHE_DEPLOYMENT_NAME_LABEL, originalName);
+    deployment.getSpec().getSelector().setMatchLabels(podMeta.getLabels());
+    
+    PodSpec podSpec = deployment.getSpec().getTemplate().getSpec(); // TODO Is this necessary?
+    podSpec.setRestartPolicy("Always");
+    return createDeployment(deployment, workspaceId, originalName);
+  }
+
+  private Pod createDeployment(Deployment deployment, String workspaceId, String originalName) 
+      throws InfrastructureException {
     final CompletableFuture<Pod> createFuture = new CompletableFuture<>();
     final Watch createWatch =
         clientFactory
@@ -144,19 +176,7 @@ public class KubernetesDeployments {
           .apps()
           .deployments()
           .inNamespace(namespace)
-          .createNew()
-          .withMetadata(metadata)
-          .withNewSpec()
-          .withNewSelector()
-          .withMatchLabels(metadata.getLabels())
-          .endSelector()
-          .withReplicas(1)
-          .withNewTemplate()
-          .withMetadata(metadata)
-          .withSpec(podSpec)
-          .endTemplate()
-          .endSpec()
-          .done();
+          .create(deployment);
       return createFuture.get(POD_CREATION_TIMEOUT_MIN, TimeUnit.MINUTES);
     } catch (KubernetesClientException e) {
       throw new KubernetesInfrastructureException(e);
@@ -165,22 +185,22 @@ public class KubernetesDeployments {
       throw new InfrastructureException(
           String.format(
               "Interrupted while waiting for Pod creation. -id: %s -message: %s",
-              metadata.getName(), e.getMessage()));
+              originalName, e.getMessage()));
     } catch (ExecutionException e) {
       throw new InfrastructureException(
           String.format(
               "Error occured while waiting for Pod creation. -id: %s -message: %s",
-              metadata.getName(), e.getCause().getMessage()));
+              originalName, e.getCause().getMessage()));
     } catch (TimeoutException e) {
       throw new InfrastructureException(
           String.format(
               "Pod creation timeout exceeded. -id: %s -message: %s",
-              metadata.getName(), e.getMessage()));
+              originalName, e.getMessage()));
     } finally {
       createWatch.close();
     }
   }
-
+  
   /**
    * Create a terminating pod that is not part of a Deployment.
    *

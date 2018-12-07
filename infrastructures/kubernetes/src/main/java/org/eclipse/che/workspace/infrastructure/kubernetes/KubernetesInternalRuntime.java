@@ -21,14 +21,18 @@ import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodSpec;
+import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.Service;
+import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.extensions.Ingress;
 import io.fabric8.kubernetes.client.Watcher.Action;
 import io.opentracing.Span;
 import io.opentracing.Tracer;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -641,12 +645,15 @@ public class KubernetesInternalRuntime<E extends KubernetesEnvironment>
     // namespace.pods().watch(new AbnormalStopHandler());
     namespace.deployments().watchEvents(new MachineLogsPublisher());
     if (unrecoverableEventListenerFactory.isConfigured()) {
-      Map<String, Pod> pods = getContext().getEnvironment().getPods();
+      Set<String> toWatch = new HashSet<>();
+      KubernetesEnvironment environment = getContext().getEnvironment();
+      toWatch.addAll(environment.getPods().keySet());
+      toWatch.addAll(environment.getDeployments().keySet());
       namespace
           .deployments()
           .watchEvents(
               unrecoverableEventListenerFactory.create(
-                  pods.keySet(), this::handleUnrecoverableEvent));
+                  toWatch, this::handleUnrecoverableEvent));
     }
 
     final KubernetesServerResolver serverResolver =
@@ -713,7 +720,7 @@ public class KubernetesInternalRuntime<E extends KubernetesEnvironment>
     final String workspaceId = getContext().getIdentity().getWorkspaceId();
     LOG.debug("Begin pods creation for workspace '{}'", workspaceId);
     for (Pod toCreate : environment.getPods().values()) {
-      startTracingContainersStartup(toCreate);
+      startTracingContainersStartup(toCreate.getSpec(), toCreate.getMetadata());
       final Pod createdPod = namespace.deployments().deploy(toCreate);
       LOG.debug(
           "Creating pod '{}' in workspace '{}'", toCreate.getMetadata().getName(), workspaceId);
@@ -735,17 +742,42 @@ public class KubernetesInternalRuntime<E extends KubernetesEnvironment>
         eventPublisher.sendStartingEvent(machineName, getContext().getIdentity());
       }
     }
+    for (Deployment toCreate : environment.getDeployments().values()) {
+      PodTemplateSpec template = toCreate.getSpec().getTemplate();
+      startTracingContainersStartup(template.getSpec(), template.getMetadata());
+      final Pod createdPod = namespace.deployments().deploy(toCreate);
+      // TODO: Don't be lazy
+      LOG.debug(
+          "Creating deployment '{}' in workspace '{}'", toCreate.getMetadata().getName(), workspaceId);
+      final ObjectMeta podMetadata = createdPod.getMetadata();
+      for (Container container : createdPod.getSpec().getContainers()) {
+        String machineName = Names.machineName(toCreate.getSpec().getTemplate().getMetadata(), container);
+
+        LOG.debug("Creating machine '{}' in workspace '{}'", machineName, workspaceId);
+        machines.put(
+            getContext().getIdentity(),
+            new KubernetesMachineImpl(
+                workspaceId,
+                machineName,
+                podMetadata.getName(),
+                container.getName(),
+                MachineStatus.STARTING,
+                machineConfigs.get(machineName).getAttributes(),
+                serverResolver.resolve(machineName)));
+        eventPublisher.sendStartingEvent(machineName, getContext().getIdentity());
+      }
+    }
     LOG.debug("Pods creation finished in workspace '{}'", workspaceId);
   }
 
-  private void startTracingContainersStartup(Pod pod) {
+  private void startTracingContainersStartup(PodSpec podSpec, ObjectMeta podMeta) {
     if (tracer == null) {
       return;
     }
-
-    for (Container container : pod.getSpec().getContainers()) {
-      String machineName = Names.machineName(pod, container);
-
+    
+    for (Container container : podSpec.getContainers()) {
+      String machineName = Names.machineName(podMeta, container);
+      
       machineStartupTraces.put(
           machineName,
           tracer

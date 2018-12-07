@@ -45,6 +45,7 @@ import org.eclipse.che.api.workspace.server.wsplugins.model.Command;
 import org.eclipse.che.workspace.infrastructure.kubernetes.Names;
 import org.eclipse.che.workspace.infrastructure.kubernetes.Warnings;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 
 /**
  * Applies Che plugins tooling configuration to a kubernetes internal runtime object.
@@ -84,7 +85,7 @@ public class KubernetesPluginsToolingApplier implements ChePluginsApplier {
 
     KubernetesEnvironment kubernetesEnvironment = (KubernetesEnvironment) internalEnvironment;
 
-    Map<String, Pod> pods = kubernetesEnvironment.getPods();
+    Map<String, PodSpecAndMeta> pods = kubernetesEnvironment.getPodData();
     switch (pods.size()) {
       case 0:
         addToolingPod(kubernetesEnvironment);
@@ -95,7 +96,7 @@ public class KubernetesPluginsToolingApplier implements ChePluginsApplier {
         throw new InfrastructureException(
             "Che plugins tooling configuration can be applied to a workspace with one pod only");
     }
-    Pod pod = pods.values().iterator().next();
+    PodSpecAndMeta pod = pods.values().iterator().next();
 
     CommandsResolver commandsResolver = new CommandsResolver(kubernetesEnvironment);
     for (ChePlugin chePlugin : chePlugins) {
@@ -125,7 +126,7 @@ public class KubernetesPluginsToolingApplier implements ChePluginsApplier {
             .endSpec()
             .build();
 
-    kubernetesEnvironment.getPods().put(CHE_WORKSPACE_POD, pod);
+    kubernetesEnvironment.addPod(CHE_WORKSPACE_POD, pod);
   }
 
   private void populateWorkspaceEnvVars(
@@ -133,7 +134,7 @@ public class KubernetesPluginsToolingApplier implements ChePluginsApplier {
 
     List<EnvVar> workspaceEnv = toK8sEnvVars(chePlugin.getWorkspaceEnv());
     kubernetesEnvironment
-        .getPods()
+        .getPodData()
         .values()
         .stream()
         .flatMap(pod -> pod.getSpec().getContainers().stream())
@@ -161,7 +162,7 @@ public class KubernetesPluginsToolingApplier implements ChePluginsApplier {
    * @throws InfrastructureException when any error occurs
    */
   private void addSidecar(
-      Pod pod,
+      PodSpecAndMeta pod,
       CheContainer container,
       ChePlugin chePlugin,
       KubernetesEnvironment kubernetesEnvironment,

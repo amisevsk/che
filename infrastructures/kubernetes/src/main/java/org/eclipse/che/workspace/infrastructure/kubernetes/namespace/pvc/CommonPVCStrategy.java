@@ -40,6 +40,7 @@ import org.eclipse.che.commons.annotation.Traced;
 import org.eclipse.che.commons.tracing.TracingTags;
 import org.eclipse.che.workspace.infrastructure.kubernetes.Names;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 import org.eclipse.che.workspace.infrastructure.kubernetes.namespace.KubernetesNamespace;
 import org.eclipse.che.workspace.infrastructure.kubernetes.namespace.KubernetesNamespaceFactory;
 import org.eclipse.che.workspace.infrastructure.kubernetes.namespace.KubernetesPersistentVolumeClaims;
@@ -114,7 +115,7 @@ public class CommonPVCStrategy implements WorkspaceVolumesStrategy {
     final Set<String> subPaths = new HashSet<>();
     final PersistentVolumeClaim pvc = newPVC(pvcName, pvcAccessMode, pvcQuantity);
     k8sEnv.getPersistentVolumeClaims().put(pvcName, pvc);
-    for (Pod pod : k8sEnv.getPods().values()) {
+    for (PodSpecAndMeta pod : k8sEnv.getPodData().values()) {
       PodSpec podSpec = pod.getSpec();
       List<Container> containers = new ArrayList<>();
       containers.addAll(podSpec.getContainers());
@@ -179,7 +180,7 @@ public class CommonPVCStrategy implements WorkspaceVolumesStrategy {
   private void addMachineVolumes(
       String workspaceId,
       Set<String> subPaths,
-      Pod pod,
+      PodSpecAndMeta pod,
       Container container,
       Map<String, Volume> volumes) {
     if (volumes.isEmpty()) {

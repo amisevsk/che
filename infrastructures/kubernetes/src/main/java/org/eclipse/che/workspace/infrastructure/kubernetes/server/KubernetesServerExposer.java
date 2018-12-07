@@ -38,6 +38,7 @@ import org.eclipse.che.api.workspace.server.spi.InfrastructureException;
 import org.eclipse.che.workspace.infrastructure.kubernetes.Annotations;
 import org.eclipse.che.workspace.infrastructure.kubernetes.Constants;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 import org.eclipse.che.workspace.infrastructure.kubernetes.provision.UniqueNamesProvisioner;
 import org.eclipse.che.workspace.infrastructure.kubernetes.server.external.ExternalServerExposerStrategy;
 import org.eclipse.che.workspace.infrastructure.kubernetes.server.secure.SecureServerExposer;
@@ -107,14 +108,14 @@ public class KubernetesServerExposer<T extends KubernetesEnvironment> {
   private final SecureServerExposer<T> secureServerExposer;
   private final String machineName;
   private final Container container;
-  private final Pod pod;
+  private final PodSpecAndMeta pod;
   private final T k8sEnv;
 
   public KubernetesServerExposer(
       ExternalServerExposerStrategy<T> externalServerExposer,
       SecureServerExposer<T> secureServerExposer,
       String machineName,
-      Pod pod,
+      PodSpecAndMeta pod,
       Container container,
       T k8sEnv) {
     this.externalServerExposer = externalServerExposer;

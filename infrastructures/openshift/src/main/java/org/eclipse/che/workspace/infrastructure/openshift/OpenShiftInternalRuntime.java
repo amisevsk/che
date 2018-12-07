@@ -19,6 +19,7 @@ import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.openshift.api.model.Route;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -123,10 +124,13 @@ public class OpenShiftInternalRuntime extends KubernetesInternalRuntime<OpenShif
 
     project.deployments().watchEvents(new MachineLogsPublisher());
     if (unrecoverablePodEventListenerFactory.isConfigured()) {
-      Map<String, Pod> pods = getContext().getEnvironment().getPods();
+      Set<String> toWatch = new HashSet<>();
+      OpenShiftEnvironment environment = getContext().getEnvironment();
+      toWatch.addAll(environment.getPods().keySet());
+      toWatch.addAll(environment.getDeployments().keySet());
       UnrecoverablePodEventListener handler =
           unrecoverablePodEventListenerFactory.create(
-              pods.keySet(), this::handleUnrecoverableEvent);
+              toWatch, this::handleUnrecoverableEvent);
       project.deployments().watchEvents(handler);
     }
 

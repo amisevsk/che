@@ -23,6 +23,7 @@ import org.eclipse.che.commons.annotation.Nullable;
 import org.eclipse.che.commons.annotation.Traced;
 import org.eclipse.che.commons.tracing.TracingTags;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 
 /**
  * Sets the service account to workspace pods if configured.
@@ -51,7 +52,7 @@ public class ServiceAccountProvisioner implements ConfigurationProvisioner {
     TracingTags.WORKSPACE_ID.set(identity::getWorkspaceId);
 
     if (!isNullOrEmpty(serviceAccount)) {
-      for (Pod pod : k8sEnv.getPods().values()) {
+      for (PodSpecAndMeta pod : k8sEnv.getPodData().values()) {
         pod.getSpec().setServiceAccountName(serviceAccount);
         pod.getSpec().setAutomountServiceAccountToken(true);
       }

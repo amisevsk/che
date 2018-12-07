@@ -41,6 +41,7 @@ import org.eclipse.che.commons.annotation.Traced;
 import org.eclipse.che.commons.tracing.TracingTags;
 import org.eclipse.che.workspace.infrastructure.kubernetes.Names;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 import org.eclipse.che.workspace.infrastructure.kubernetes.namespace.KubernetesNamespaceFactory;
 import org.eclipse.che.workspace.infrastructure.kubernetes.namespace.KubernetesPersistentVolumeClaims;
 import org.slf4j.Logger;
@@ -109,7 +110,7 @@ public class UniqueWorkspacePVCStrategy implements WorkspaceVolumesStrategy {
                 .create(workspaceId)
                 .persistentVolumeClaims()
                 .getByLabel(CHE_WORKSPACE_ID_LABEL, workspaceId));
-    for (Pod pod : k8sEnv.getPods().values()) {
+    for (PodSpecAndMeta pod : k8sEnv.getPodData().values()) {
       final PodSpec podSpec = pod.getSpec();
       List<Container> containers = new ArrayList<>();
       containers.addAll(podSpec.getContainers());
@@ -152,7 +153,7 @@ public class UniqueWorkspacePVCStrategy implements WorkspaceVolumesStrategy {
       String workspaceId,
       Map<String, PersistentVolumeClaim> provisionedClaims,
       Map<String, PersistentVolumeClaim> existingVolumeName2PVC,
-      Pod pod,
+      PodSpecAndMeta pod,
       Container container,
       Map<String, Volume> volumes)
       throws InfrastructureException {

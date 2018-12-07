@@ -22,6 +22,7 @@ import org.eclipse.che.commons.annotation.Traced;
 import org.eclipse.che.commons.tracing.TracingTags;
 import org.eclipse.che.workspace.infrastructure.kubernetes.Warnings;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 import org.eclipse.che.workspace.infrastructure.kubernetes.provision.ConfigurationProvisioner;
 
 /**
@@ -40,7 +41,7 @@ public class RestartPolicyRewriter implements ConfigurationProvisioner {
 
     TracingTags.WORKSPACE_ID.set(identity::getWorkspaceId);
 
-    for (Pod podConfig : k8sEnv.getPods().values()) {
+    for (PodSpecAndMeta podConfig : k8sEnv.getPodData().values()) {
       final String podName = podConfig.getMetadata().getName();
       final PodSpec podSpec = podConfig.getSpec();
       rewriteRestartPolicy(podSpec, podName, k8sEnv);
