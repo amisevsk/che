@@ -74,7 +74,16 @@ public class OpenShiftEnvironment extends KubernetesEnvironment {
       Map<String, Secret> secrets,
       Map<String, ConfigMap> configMaps,
       Map<String, Route> routes) {
-    super(internalEnvironment, pods, deployments, podData, services, ingresses, pvcs, secrets, configMaps);
+    super(
+        internalEnvironment,
+        pods,
+        deployments,
+        podData,
+        services,
+        ingresses,
+        pvcs,
+        secrets,
+        configMaps);
     setType(TYPE);
     this.routes = routes;
   }
@@ -92,7 +101,18 @@ public class OpenShiftEnvironment extends KubernetesEnvironment {
       Map<String, Secret> secrets,
       Map<String, ConfigMap> configMaps,
       Map<String, Route> routes) {
-    super(internalRecipe, machines, warnings, pods, deployments, podData, services, ingresses, pvcs, secrets, configMaps);
+    super(
+        internalRecipe,
+        machines,
+        warnings,
+        pods,
+        deployments,
+        podData,
+        services,
+        ingresses,
+        pvcs,
+        secrets,
+        configMaps);
     setType(TYPE);
     this.routes = routes;
   }
@@ -137,23 +157,30 @@ public class OpenShiftEnvironment extends KubernetesEnvironment {
     @Override
     public Builder setPods(Map<String, Pod> pods) {
       this.pods.putAll(pods);
-      pods.entrySet().forEach(e -> {
-        Pod pod = e.getValue();
-        podData.put(e.getKey(), new PodSpecAndMeta(pod.getSpec(), pod.getMetadata()));
-      });
+      pods.entrySet()
+          .forEach(
+              e -> {
+                Pod pod = e.getValue();
+                podData.put(e.getKey(), new PodSpecAndMeta(pod.getSpec(), pod.getMetadata()));
+              });
       return this;
     }
-    
+
     @Override
     public Builder setDeployments(Map<String, Deployment> deployments) {
       this.deployments.putAll(deployments);
-      deployments.entrySet().forEach(e -> {
-        PodTemplateSpec podTemplate = e.getValue().getSpec().getTemplate();
-        podData.put(e.getKey(), new PodSpecAndMeta(podTemplate.getSpec(), podTemplate.getMetadata()));
-      });
+      deployments
+          .entrySet()
+          .forEach(
+              e -> {
+                PodTemplateSpec podTemplate = e.getValue().getSpec().getTemplate();
+                podData.put(
+                    e.getKey(),
+                    new PodSpecAndMeta(podTemplate.getSpec(), podTemplate.getMetadata()));
+              });
       return this;
     }
-    
+
     @Override
     public Builder setServices(Map<String, Service> services) {
       this.services.putAll(services);
@@ -197,7 +224,16 @@ public class OpenShiftEnvironment extends KubernetesEnvironment {
 
     public OpenShiftEnvironment build() {
       return new OpenShiftEnvironment(
-          internalEnvironment, pods, deployments, podData, services, ingresses, pvcs, secrets, configMaps, routes);
+          internalEnvironment,
+          pods,
+          deployments,
+          podData,
+          services,
+          ingresses,
+          pvcs,
+          secrets,
+          configMaps,
+          routes);
     }
   }
 }

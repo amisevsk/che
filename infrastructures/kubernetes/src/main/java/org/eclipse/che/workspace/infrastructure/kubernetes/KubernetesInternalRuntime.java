@@ -652,8 +652,7 @@ public class KubernetesInternalRuntime<E extends KubernetesEnvironment>
       namespace
           .deployments()
           .watchEvents(
-              unrecoverableEventListenerFactory.create(
-                  toWatch, this::handleUnrecoverableEvent));
+              unrecoverableEventListenerFactory.create(toWatch, this::handleUnrecoverableEvent));
     }
 
     final KubernetesServerResolver serverResolver =
@@ -748,10 +747,13 @@ public class KubernetesInternalRuntime<E extends KubernetesEnvironment>
       final Pod createdPod = namespace.deployments().deploy(toCreate);
       // TODO: Don't be lazy
       LOG.debug(
-          "Creating deployment '{}' in workspace '{}'", toCreate.getMetadata().getName(), workspaceId);
+          "Creating deployment '{}' in workspace '{}'",
+          toCreate.getMetadata().getName(),
+          workspaceId);
       final ObjectMeta podMetadata = createdPod.getMetadata();
       for (Container container : createdPod.getSpec().getContainers()) {
-        String machineName = Names.machineName(toCreate.getSpec().getTemplate().getMetadata(), container);
+        String machineName =
+            Names.machineName(toCreate.getSpec().getTemplate().getMetadata(), container);
 
         LOG.debug("Creating machine '{}' in workspace '{}'", machineName, workspaceId);
         machines.put(
@@ -774,10 +776,10 @@ public class KubernetesInternalRuntime<E extends KubernetesEnvironment>
     if (tracer == null) {
       return;
     }
-    
+
     for (Container container : podSpec.getContainers()) {
       String machineName = Names.machineName(podMeta, container);
-      
+
       machineStartupTraces.put(
           machineName,
           tracer

@@ -49,11 +49,11 @@ public class Names {
   public static String machineName(Pod pod, Container container) {
     return machineName(pod.getMetadata(), container);
   }
-  
+
   public static String machineName(PodSpecAndMeta podData, Container container) {
     return machineName(podData.getMetadata(), container);
   }
-  
+
   public static String machineName(ObjectMeta podMeta, Container container) {
     final Map<String, String> annotations = podMeta.getAnnotations();
     final String machineName;

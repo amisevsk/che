@@ -14,7 +14,6 @@ package org.eclipse.che.workspace.infrastructure.kubernetes.wsplugins;
 import com.google.common.annotations.Beta;
 import com.google.inject.Inject;
 import io.fabric8.kubernetes.api.model.Container;
-import io.fabric8.kubernetes.api.model.Pod;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;

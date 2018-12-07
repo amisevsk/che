@@ -48,12 +48,12 @@ public class KubernetesObjectUtil {
 
     putLabel(target.getMetadata(), key, value);
   }
-  
+
   public static void putLabel(PodSpecAndMeta target, String key, String value) {
     ObjectMeta metadata = target.getMetadata();
     putLabel(metadata, key, value); // TODO: NPE?
   }
-  
+
   public static void putLabel(ObjectMeta metadata, String key, String value) {
     Map<String, String> labels = metadata.getLabels();
     if (labels == null) {

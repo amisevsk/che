@@ -16,7 +16,6 @@ import static java.util.stream.Collectors.toList;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import io.fabric8.kubernetes.api.model.Pod;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;

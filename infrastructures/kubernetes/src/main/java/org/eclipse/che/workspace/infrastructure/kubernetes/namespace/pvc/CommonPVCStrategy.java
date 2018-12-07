@@ -21,7 +21,6 @@ import static org.eclipse.che.workspace.infrastructure.kubernetes.provision.Logs
 import com.google.inject.Inject;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
-import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodSpec;
 import java.util.ArrayList;
 import java.util.Collection;

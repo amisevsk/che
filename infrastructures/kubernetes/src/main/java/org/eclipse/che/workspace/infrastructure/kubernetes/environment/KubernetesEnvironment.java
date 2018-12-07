@@ -11,6 +11,7 @@
  */
 package org.eclipse.che.workspace.infrastructure.kubernetes.environment;
 
+import com.google.common.collect.ImmutableMap;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
@@ -30,7 +31,6 @@ import org.eclipse.che.api.core.model.workspace.config.Command;
 import org.eclipse.che.api.workspace.server.spi.environment.InternalEnvironment;
 import org.eclipse.che.api.workspace.server.spi.environment.InternalMachineConfig;
 import org.eclipse.che.api.workspace.server.spi.environment.InternalRecipe;
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Holds objects of Kubernetes environment.
@@ -43,7 +43,7 @@ public class KubernetesEnvironment extends InternalEnvironment {
 
   private final Map<String, Pod> pods;
   private final Map<String, Deployment> deployments;
-  private final Map<String, PodSpecAndMeta> podData; //TODO: Docs
+  private final Map<String, PodSpecAndMeta> podData; // TODO: Docs
   private final Map<String, Service> services;
   private final Map<String, Ingress> ingresses;
   private final Map<String, PersistentVolumeClaim> persistentVolumeClaims;
@@ -133,15 +133,15 @@ public class KubernetesEnvironment extends InternalEnvironment {
   public Map<String, Pod> getPods() {
     return ImmutableMap.copyOf(pods);
   }
-  
+
   public Map<String, PodSpecAndMeta> getPodData() {
     return ImmutableMap.copyOf(podData);
   }
-  
+
   public Map<String, Deployment> getDeployments() {
     return ImmutableMap.copyOf(deployments);
   }
-  
+
   public void addPod(String key, Pod pod) {
     pods.put(key, pod);
     podData.put(key, new PodSpecAndMeta(pod.getSpec(), pod.getMetadata()));
@@ -215,19 +215,26 @@ public class KubernetesEnvironment extends InternalEnvironment {
 
     public Builder setPods(Map<String, Pod> pods) {
       this.pods.putAll(pods);
-      pods.entrySet().forEach(e -> {
-        Pod pod = e.getValue();
-        podData.put(e.getKey(), new PodSpecAndMeta(pod.getSpec(), pod.getMetadata()));
-      });
+      pods.entrySet()
+          .forEach(
+              e -> {
+                Pod pod = e.getValue();
+                podData.put(e.getKey(), new PodSpecAndMeta(pod.getSpec(), pod.getMetadata()));
+              });
       return this;
     }
-    
+
     public Builder setDeployments(Map<String, Deployment> deployments) {
       this.deployments.putAll(deployments);
-      deployments.entrySet().forEach(e -> {
-        PodTemplateSpec podTemplate = e.getValue().getSpec().getTemplate();
-        podData.put(e.getKey(), new PodSpecAndMeta(podTemplate.getSpec(), podTemplate.getMetadata()));
-      });
+      deployments
+          .entrySet()
+          .forEach(
+              e -> {
+                PodTemplateSpec podTemplate = e.getValue().getSpec().getTemplate();
+                podData.put(
+                    e.getKey(),
+                    new PodSpecAndMeta(podTemplate.getSpec(), podTemplate.getMetadata()));
+              });
       return this;
     }
 
@@ -263,23 +270,31 @@ public class KubernetesEnvironment extends InternalEnvironment {
 
     public KubernetesEnvironment build() {
       return new KubernetesEnvironment(
-          internalEnvironment, pods, deployments, podData, services, ingresses, pvcs, secrets, configMaps);
+          internalEnvironment,
+          pods,
+          deployments,
+          podData,
+          services,
+          ingresses,
+          pvcs,
+          secrets,
+          configMaps);
     }
   }
-  
+
   public static class PodSpecAndMeta {
     private PodSpec podSpec;
     private ObjectMeta podMeta;
-    
+
     public PodSpecAndMeta(PodSpec podSpec, ObjectMeta podMeta) {
       this.podSpec = podSpec;
       this.podMeta = podMeta;
     }
-    
+
     public PodSpec getSpec() {
       return podSpec;
     }
-    
+
     public ObjectMeta getMetadata() {
       return podMeta;
     }

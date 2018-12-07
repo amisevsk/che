@@ -15,7 +15,6 @@ import static java.lang.String.format;
 
 import com.google.common.base.Joiner;
 import io.fabric8.kubernetes.api.model.Container;
-import io.fabric8.kubernetes.api.model.Pod;
 import java.util.HashSet;
 import java.util.Set;
 import org.eclipse.che.api.core.ValidationException;

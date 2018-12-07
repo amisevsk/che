@@ -13,7 +13,6 @@ package org.eclipse.che.workspace.infrastructure.kubernetes.provision;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
-import io.fabric8.kubernetes.api.model.Pod;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;

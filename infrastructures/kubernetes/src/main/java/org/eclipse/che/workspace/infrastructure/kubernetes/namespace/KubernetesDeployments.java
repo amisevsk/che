@@ -132,23 +132,24 @@ public class KubernetesDeployments {
 
     PodSpec podSpec = pod.getSpec();
     podSpec.setRestartPolicy("Always"); // Only allowable value
-    
-    Deployment deployment = new DeploymentBuilder()
-        .withMetadata(metadata)
-        .withNewSpec()
-        .withNewSelector()
-        .withMatchLabels(metadata.getLabels())
-        .endSelector()
-        .withReplicas(1)
-        .withNewTemplate()
-        .withMetadata(metadata)
-        .withSpec(podSpec)
-        .endTemplate()
-        .endSpec()
-        .build();
+
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withMetadata(metadata)
+            .withNewSpec()
+            .withNewSelector()
+            .withMatchLabels(metadata.getLabels())
+            .endSelector()
+            .withReplicas(1)
+            .withNewTemplate()
+            .withMetadata(metadata)
+            .withSpec(podSpec)
+            .endTemplate()
+            .endSpec()
+            .build();
     return createDeployment(deployment, workspaceId, originalName);
   }
-  
+
   public Pod deploy(Deployment deployment) throws InfrastructureException {
     ObjectMeta podMeta = deployment.getSpec().getTemplate().getMetadata();
     String originalName = podMeta.getName();
@@ -157,13 +158,13 @@ public class KubernetesDeployments {
     putLabel(podMeta, CHE_DEPLOYMENT_NAME_LABEL, deployment.getMetadata().getName());
     putLabel(deployment.getMetadata(), CHE_WORKSPACE_ID_LABEL, workspaceId);
     deployment.getSpec().getSelector().setMatchLabels(podMeta.getLabels());
-    
+
     PodSpec podSpec = deployment.getSpec().getTemplate().getSpec(); // TODO Is this necessary?
     podSpec.setRestartPolicy("Always");
     return createDeployment(deployment, workspaceId, deployment.getMetadata().getName());
   }
 
-  private Pod createDeployment(Deployment deployment, String workspaceId, String originalName) 
+  private Pod createDeployment(Deployment deployment, String workspaceId, String originalName)
       throws InfrastructureException {
     final CompletableFuture<Pod> createFuture = new CompletableFuture<>();
     final Watch createWatch =
@@ -196,13 +197,12 @@ public class KubernetesDeployments {
     } catch (TimeoutException e) {
       throw new InfrastructureException(
           String.format(
-              "Pod creation timeout exceeded. -id: %s -message: %s",
-              originalName, e.getMessage()));
+              "Pod creation timeout exceeded. -id: %s -message: %s", originalName, e.getMessage()));
     } finally {
       createWatch.close();
     }
   }
-  
+
   /**
    * Create a terminating pod that is not part of a Deployment.
    *
