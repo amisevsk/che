@@ -47,6 +47,7 @@ import org.eclipse.che.api.workspace.server.model.impl.VolumeImpl;
 import org.eclipse.che.api.workspace.server.spi.InfrastructureException;
 import org.eclipse.che.api.workspace.server.spi.environment.InternalMachineConfig;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 import org.eclipse.che.workspace.infrastructure.kubernetes.namespace.KubernetesNamespace;
 import org.eclipse.che.workspace.infrastructure.kubernetes.namespace.KubernetesNamespaceFactory;
 import org.eclipse.che.workspace.infrastructure.kubernetes.namespace.KubernetesPersistentVolumeClaims;
@@ -146,6 +147,10 @@ public class UniqueWorkspacePVCStrategyTest {
 
     mockName(pod, POD_NAME);
     mockName(pod2, POD_NAME_2);
+    
+    PodSpecAndMeta podData = new PodSpecAndMeta(pod.getSpec(), pod.getMetadata());
+    PodSpecAndMeta pod2Data = new PodSpecAndMeta(pod2.getSpec(), pod2.getMetadata());
+    lenient().when(k8sEnv.getPodData()).thenReturn(ImmutableMap.of(POD_NAME, podData, POD_NAME_2, pod2Data));
 
     lenient().when(workspace.getId()).thenReturn(WORKSPACE_ID);
     Map<String, String> workspaceAttributes = new HashMap<>();

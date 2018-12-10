@@ -66,6 +66,8 @@ import org.eclipse.che.api.workspace.server.wsplugins.model.EnvVar;
 import org.eclipse.che.api.workspace.server.wsplugins.model.Volume;
 import org.eclipse.che.workspace.infrastructure.kubernetes.Warnings;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
+import org.eclipse.persistence.jpa.jpql.tools.model.IEclipseLinkConditionalStateObjectBuilder;
 import org.mockito.Mock;
 import org.mockito.testng.MockitoTestNGListener;
 import org.testng.annotations.BeforeMethod;
@@ -106,11 +108,11 @@ public class KubernetesPluginsToolingApplierTest {
     containers.add(userContainer);
     machines.put(USER_MACHINE_NAME, userMachineConfig);
 
-    internalEnvironment.getPods().put(POD_NAME, pod);
     when(pod.getSpec()).thenReturn(podSpec);
-    when(podSpec.getContainers()).thenReturn(containers);
+    lenient().when(podSpec.getContainers()).thenReturn(containers);
     lenient().when(pod.getMetadata()).thenReturn(meta);
     lenient().when(meta.getName()).thenReturn(POD_NAME);
+    internalEnvironment.addPod(POD_NAME, pod);
     internalEnvironment.getMachines().putAll(machines);
   }
 
@@ -251,6 +253,8 @@ public class KubernetesPluginsToolingApplierTest {
           "Che plugins tooling configuration can be applied to a workspace with one pod only")
   public void throwsExceptionWhenTheNumberOfPodsIsNot1() throws Exception {
     when(internalEnvironment.getPods()).thenReturn(of("pod1", pod, "pod2", pod));
+    PodSpecAndMeta podData = new PodSpecAndMeta(podSpec, meta);
+    when(internalEnvironment.getPodData()).thenReturn(of("pod1", podData, "pod2", podData));
 
     applier.apply(internalEnvironment, singletonList(createChePlugin()));
   }
@@ -266,7 +270,10 @@ public class KubernetesPluginsToolingApplierTest {
 
   @Test
   public void createsPodAndAddToolingIfNoPodIsPresent() throws Exception {
-    internalEnvironment.getPods().clear();
+    internalEnvironment = spy(KubernetesEnvironment.builder().build());
+    Map<String, InternalMachineConfig> machines = new HashMap<>();
+    machines.put(USER_MACHINE_NAME, userMachineConfig);
+    internalEnvironment.getMachines().putAll(machines);
 
     applier.apply(internalEnvironment, singletonList(createChePlugin()));
 

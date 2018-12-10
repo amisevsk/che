@@ -130,7 +130,7 @@ public class KubernetesEnvironment extends InternalEnvironment {
   }
 
   /** Returns pods that should be created when environment starts. */
-  public Map<String, Pod> getPods() {
+  public Map<String, Pod> getPods() { // TODO: Rename?
     return ImmutableMap.copyOf(pods);
   }
 

@@ -279,7 +279,7 @@ public class KubernetesInternalRuntimeTest {
     when(services.create(any())).thenAnswer(a -> a.getArguments()[0]);
     when(ingresses.create(any())).thenAnswer(a -> a.getArguments()[0]);
     when(ingresses.wait(anyString(), anyLong(), any(), any())).thenReturn(ingress);
-    when(deployments.deploy(any())).thenAnswer(a -> a.getArguments()[0]);
+    when(deployments.deploy(any(Pod.class))).thenAnswer(a -> a.getArguments()[0]);
     when(k8sEnv.getServices()).thenReturn(allServices);
     when(k8sEnv.getIngresses()).thenReturn(allIngresses);
     when(k8sEnv.getPods()).thenReturn(podsMap);
@@ -300,7 +300,7 @@ public class KubernetesInternalRuntimeTest {
     verify(toolingProvisioner).provision(IDENTITY, startSynchronizer, k8sEnv);
     verify(internalEnvironmentProvisioner).provision(IDENTITY, k8sEnv);
     verify(kubernetesEnvironmentProvisioner).provision(k8sEnv, IDENTITY);
-    verify(deployments).deploy(any());
+    verify(deployments).deploy(any(Pod.class));
     verify(ingresses).create(any());
     verify(services).create(any());
     verify(secrets).create(any());
@@ -357,7 +357,7 @@ public class KubernetesInternalRuntimeTest {
 
     internalRuntime.start(emptyMap());
 
-    verify(deployments).deploy(any());
+    verify(deployments).deploy(any(Pod.class));
     verify(ingresses).create(any());
     verify(services).create(any());
     verify(namespace.deployments(), times(2)).watchEvents(any());
@@ -378,7 +378,7 @@ public class KubernetesInternalRuntimeTest {
 
     internalRuntime.start(emptyMap());
 
-    verify(deployments).deploy(any());
+    verify(deployments).deploy(any(Pod.class));
     verify(ingresses).create(any());
     verify(services).create(any());
     verify(namespace.deployments(), times(1)).watchEvents(any());
@@ -422,7 +422,7 @@ public class KubernetesInternalRuntimeTest {
     try {
       internalRuntime.start(emptyMap());
     } catch (Exception rethrow) {
-      verify(deployments).deploy(any());
+      verify(deployments).deploy(any(Pod.class));
       verify(ingresses).create(any());
       verify(services).create(any());
       verify(bootstrapper, atLeastOnce()).bootstrapAsync();

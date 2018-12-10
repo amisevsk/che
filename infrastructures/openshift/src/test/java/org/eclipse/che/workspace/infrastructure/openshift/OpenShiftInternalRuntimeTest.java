@@ -213,7 +213,7 @@ public class OpenShiftInternalRuntimeTest {
         ImmutableMap.of(POD_NAME, mockPod(ImmutableList.of(container)));
     when(services.create(any())).thenAnswer(a -> a.getArguments()[0]);
     when(routes.create(any())).thenAnswer(a -> a.getArguments()[0]);
-    when(deployments.deploy(any())).thenAnswer(a -> a.getArguments()[0]);
+    when(deployments.deploy(any(Pod.class))).thenAnswer(a -> a.getArguments()[0]);
     when(osEnv.getServices()).thenReturn(allServices);
     when(osEnv.getRoutes()).thenReturn(allRoutes);
     when(osEnv.getPods()).thenReturn(allPods);
@@ -232,7 +232,7 @@ public class OpenShiftInternalRuntimeTest {
 
     internalRuntime.startMachines();
 
-    verify(deployments).deploy(any());
+    verify(deployments).deploy(any(Pod.class));
     verify(routes).create(any());
     verify(services).create(any());
     verify(secrets).create(any());
@@ -254,7 +254,7 @@ public class OpenShiftInternalRuntimeTest {
 
     internalRuntime.startMachines();
 
-    verify(deployments).deploy(any());
+    verify(deployments).deploy(any(Pod.class));
     verify(routes).create(any());
     verify(services).create(any());
 

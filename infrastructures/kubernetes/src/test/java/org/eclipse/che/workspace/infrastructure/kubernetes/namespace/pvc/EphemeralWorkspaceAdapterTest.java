@@ -26,6 +26,7 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.VolumeMount;
+import java.io.PrintStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,7 @@ import org.eclipse.che.api.workspace.server.WorkspaceManager;
 import org.eclipse.che.api.workspace.server.model.impl.VolumeImpl;
 import org.eclipse.che.api.workspace.server.spi.environment.InternalMachineConfig;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 import org.mockito.Mock;
 import org.mockito.testng.MockitoTestNGListener;
 import org.testng.annotations.BeforeMethod;
@@ -108,7 +110,8 @@ public class EphemeralWorkspaceAdapterTest {
   public void testEmptyDirVolumeMountsAdded() throws Exception {
     Container container = new Container();
     Pod pod = buildPod(POD_ID, container);
-    when(k8sEnv.getPods()).thenReturn(ImmutableMap.of(POD_ID, pod));
+    PodSpecAndMeta podData = new PodSpecAndMeta(pod.getSpec(), pod.getMetadata());
+    when(k8sEnv.getPodData()).thenReturn(ImmutableMap.of(POD_ID, podData));
 
     ephemeralWorkspaceAdapter.provision(k8sEnv, runtimeIdentity);
 
@@ -124,6 +127,8 @@ public class EphemeralWorkspaceAdapterTest {
     Container container2 = new Container();
     Pod pod = buildPod(POD_ID, container1, container2);
     when(k8sEnv.getPods()).thenReturn(ImmutableMap.of(POD_ID, pod));
+    PodSpecAndMeta podData = new PodSpecAndMeta(pod.getSpec(), pod.getMetadata());
+    when(k8sEnv.getPodData()).thenReturn(ImmutableMap.of(POD_ID, podData));
 
     ephemeralWorkspaceAdapter.provision(k8sEnv, runtimeIdentity);
 
@@ -149,6 +154,8 @@ public class EphemeralWorkspaceAdapterTest {
     Container initContainer = new Container();
     Pod pod = buildPod(POD_ID, container1, container2);
     when(k8sEnv.getPods()).thenReturn(ImmutableMap.of(POD_ID, pod));
+    PodSpecAndMeta podData = new PodSpecAndMeta(pod.getSpec(), pod.getMetadata());
+    when(k8sEnv.getPodData()).thenReturn(ImmutableMap.of(POD_ID, podData));
     pod.getSpec().setInitContainers(ImmutableList.of(initContainer));
 
     ephemeralWorkspaceAdapter.provision(k8sEnv, runtimeIdentity);

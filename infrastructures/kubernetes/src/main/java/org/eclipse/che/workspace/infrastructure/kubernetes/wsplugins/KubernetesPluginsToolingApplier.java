@@ -89,6 +89,7 @@ public class KubernetesPluginsToolingApplier implements ChePluginsApplier {
     switch (pods.size()) {
       case 0:
         addToolingPod(kubernetesEnvironment);
+        pods = kubernetesEnvironment.getPodData();
         break;
       case 1:
         break;

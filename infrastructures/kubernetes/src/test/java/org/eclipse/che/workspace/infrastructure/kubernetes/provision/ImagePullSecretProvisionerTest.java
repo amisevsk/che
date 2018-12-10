@@ -35,6 +35,7 @@ import org.eclipse.che.infrastructure.docker.auth.UserSpecificDockerRegistryCred
 import org.eclipse.che.infrastructure.docker.auth.dto.AuthConfig;
 import org.eclipse.che.infrastructure.docker.auth.dto.AuthConfigs;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 import org.mockito.Mock;
 import org.mockito.testng.MockitoTestNGListener;
 import org.testng.annotations.BeforeMethod;
@@ -75,9 +76,9 @@ public class ImagePullSecretProvisionerTest {
     when(runtimeIdentity.getWorkspaceId()).thenReturn(WORKSPACE_ID);
 
     k8sEnv = KubernetesEnvironment.builder().build();
-    k8sEnv.getPods().put("wksp", pod);
     when(pod.getSpec()).thenReturn(podSpec);
     when(podSpec.getImagePullSecrets()).thenReturn(ImmutableList.of(existingImagePullSecretRef));
+    k8sEnv.addPod("wksp", pod);
 
     when(credentialsProvider.getCredentials()).thenReturn(authConfigs);
     imagePullSecretProvisioner = new ImagePullSecretProvisioner(credentialsProvider);

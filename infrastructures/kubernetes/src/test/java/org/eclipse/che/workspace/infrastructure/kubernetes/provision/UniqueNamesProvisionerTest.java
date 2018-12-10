@@ -26,11 +26,13 @@ import io.fabric8.kubernetes.api.model.extensions.IngressBuilder;
 import java.util.HashMap;
 import org.eclipse.che.api.core.model.workspace.runtime.RuntimeIdentity;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 import org.mockito.Mock;
 import org.mockito.testng.MockitoTestNGListener;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Tests {@link UniqueNamesProvisioner}.
@@ -59,8 +61,10 @@ public class UniqueNamesProvisionerTest {
     when(runtimeIdentity.getWorkspaceId()).thenReturn(WORKSPACE_ID);
     final HashMap<String, Pod> pods = new HashMap<>();
     Pod pod = newPod();
-    pods.put(POD_NAME, pod);
-    doReturn(pods).when(k8sEnv).getPods();
+    PodSpecAndMeta podData = new PodSpecAndMeta(pod.getSpec(), pod.getMetadata());
+    
+    doReturn(ImmutableMap.of(POD_NAME, pod)).when(k8sEnv).getPods();
+    doReturn(ImmutableMap.of(POD_NAME, podData)).when(k8sEnv).getPodData();
 
     uniqueNamesProvisioner.provision(k8sEnv, runtimeIdentity);
 

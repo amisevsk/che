@@ -50,6 +50,7 @@ import org.eclipse.che.api.workspace.server.model.impl.VolumeImpl;
 import org.eclipse.che.api.workspace.server.spi.InfrastructureException;
 import org.eclipse.che.api.workspace.server.spi.environment.InternalMachineConfig;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
+import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 import org.eclipse.che.workspace.infrastructure.kubernetes.namespace.KubernetesNamespace;
 import org.eclipse.che.workspace.infrastructure.kubernetes.namespace.KubernetesNamespaceFactory;
 import org.eclipse.che.workspace.infrastructure.kubernetes.namespace.KubernetesPersistentVolumeClaims;
@@ -152,7 +153,7 @@ public class CommonPVCStrategyTest {
     lenient().when(container.getVolumeMounts()).thenReturn(new ArrayList<>());
     lenient().when(container2.getVolumeMounts()).thenReturn(new ArrayList<>());
     lenient().when(container3.getVolumeMounts()).thenReturn(new ArrayList<>());
-
+    
     lenient().doNothing().when(pvcSubPathHelper).execute(any(), any(), any());
     lenient().when(k8sEnv.getPersistentVolumeClaims()).thenReturn(new HashMap<>());
     lenient()
@@ -163,6 +164,12 @@ public class CommonPVCStrategyTest {
 
     mockName(pod, POD_NAME);
     mockName(pod2, POD_NAME_2);
+
+    Map<String, PodSpecAndMeta> podData = new HashMap<>();
+    podData.put(POD_NAME, new PodSpecAndMeta(pod.getSpec(), pod.getMetadata()));
+    podData.put(POD_NAME_2, new PodSpecAndMeta(pod2.getSpec(), pod2.getMetadata()));
+    lenient().when(k8sEnv.getPodData()).thenReturn(podData);
+
     when(workspace.getId()).thenReturn(WORKSPACE_ID);
     Map<String, String> workspaceAttributes = new HashMap<>();
     WorkspaceConfig workspaceConfig = mock(WorkspaceConfig.class);
