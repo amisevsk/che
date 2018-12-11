@@ -14,9 +14,9 @@ package org.eclipse.che.workspace.infrastructure.kubernetes;
 import static org.eclipse.che.workspace.infrastructure.kubernetes.Constants.MACHINE_NAME_ANNOTATION_FMT;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.lenient;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -88,7 +88,8 @@ public class KubernetesBrokerInitContainerApplierTest {
   @BeforeMethod
   public void setUp() throws Exception {
     // Workspace mocking
-    lenient().doReturn(ImmutableMap.of(WORKSPACE_POD_NAME, workspacePod))
+    lenient()
+        .doReturn(ImmutableMap.of(WORKSPACE_POD_NAME, workspacePod))
         .when(workspaceEnvironment)
         .getPods();
     doReturn(workspaceMachines).when(workspaceEnvironment).getMachines();
@@ -99,7 +100,10 @@ public class KubernetesBrokerInitContainerApplierTest {
 
     // Broker mocking
     doReturn(brokerEnvironment).when(brokerEnvironmentFactory).create(any(), any(), any());
-    lenient().doReturn(ImmutableMap.of(BROKER_POD_NAME, brokerPod)).when(brokerEnvironment).getPods();
+    lenient()
+        .doReturn(ImmutableMap.of(BROKER_POD_NAME, brokerPod))
+        .when(brokerEnvironment)
+        .getPods();
     brokerPodSpec = new PodSpec();
     brokerPodSpec.setContainers(ImmutableList.of(brokerContainer));
     brokerPodSpec.setVolumes(ImmutableList.of(brokerVolume));
@@ -127,11 +131,15 @@ public class KubernetesBrokerInitContainerApplierTest {
                 BROKER_MACHINE_NAME))
         .when(brokerPodMetadata)
         .getAnnotations();
-    
+
     PodSpecAndMeta workspacePodData = new PodSpecAndMeta(workspacePodSpec, workspacePodMetadata);
-    doReturn(ImmutableMap.of(WORKSPACE_POD_NAME, workspacePodData)).when(workspaceEnvironment).getPodData();
+    doReturn(ImmutableMap.of(WORKSPACE_POD_NAME, workspacePodData))
+        .when(workspaceEnvironment)
+        .getPodData();
     PodSpecAndMeta brokerPodData = new PodSpecAndMeta(brokerPodSpec, brokerPodMetadata);
-    doReturn(ImmutableMap.of(WORKSPACE_POD_NAME, brokerPodData)).when(brokerEnvironment).getPodData();
+    doReturn(ImmutableMap.of(WORKSPACE_POD_NAME, brokerPodData))
+        .when(brokerEnvironment)
+        .getPodData();
 
     applier = new KubernetesBrokerInitContainerApplier<>(brokerEnvironmentFactory);
   }

@@ -26,7 +26,6 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.VolumeMount;
-import java.io.PrintStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;

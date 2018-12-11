@@ -17,6 +17,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 
+import com.google.common.collect.ImmutableMap;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -32,7 +33,6 @@ import org.mockito.testng.MockitoTestNGListener;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Tests {@link UniqueNamesProvisioner}.
@@ -62,7 +62,7 @@ public class UniqueNamesProvisionerTest {
     final HashMap<String, Pod> pods = new HashMap<>();
     Pod pod = newPod();
     PodSpecAndMeta podData = new PodSpecAndMeta(pod.getSpec(), pod.getMetadata());
-    
+
     doReturn(ImmutableMap.of(POD_NAME, pod)).when(k8sEnv).getPods();
     doReturn(ImmutableMap.of(POD_NAME, podData)).when(k8sEnv).getPodData();
 

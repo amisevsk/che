@@ -153,7 +153,7 @@ public class CommonPVCStrategyTest {
     lenient().when(container.getVolumeMounts()).thenReturn(new ArrayList<>());
     lenient().when(container2.getVolumeMounts()).thenReturn(new ArrayList<>());
     lenient().when(container3.getVolumeMounts()).thenReturn(new ArrayList<>());
-    
+
     lenient().doNothing().when(pvcSubPathHelper).execute(any(), any(), any());
     lenient().when(k8sEnv.getPersistentVolumeClaims()).thenReturn(new HashMap<>());
     lenient()

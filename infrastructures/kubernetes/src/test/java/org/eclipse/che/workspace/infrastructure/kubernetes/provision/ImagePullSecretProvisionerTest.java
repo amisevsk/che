@@ -35,7 +35,6 @@ import org.eclipse.che.infrastructure.docker.auth.UserSpecificDockerRegistryCred
 import org.eclipse.che.infrastructure.docker.auth.dto.AuthConfig;
 import org.eclipse.che.infrastructure.docker.auth.dto.AuthConfigs;
 import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment;
-import org.eclipse.che.workspace.infrastructure.kubernetes.environment.KubernetesEnvironment.PodSpecAndMeta;
 import org.mockito.Mock;
 import org.mockito.testng.MockitoTestNGListener;
 import org.testng.annotations.BeforeMethod;

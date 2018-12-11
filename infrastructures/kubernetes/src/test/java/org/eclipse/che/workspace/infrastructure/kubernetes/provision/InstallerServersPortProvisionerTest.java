@@ -78,13 +78,7 @@ public class InstallerServersPortProvisionerTest {
     doNothing().when(portProvisioner).fixInstallersPortsConflicts(anyList());
     Pod pod1 = createPod("pod1", "container1", "container2");
     Pod pod2 = createPod("pod2", "container3");
-    when(k8sEnv.getPods())
-        .thenReturn(
-            ImmutableMap.of(
-                "pod1",
-                pod1,
-                "pod2",
-                pod2));
+    when(k8sEnv.getPods()).thenReturn(ImmutableMap.of("pod1", pod1, "pod2", pod2));
     when(k8sEnv.getPodData())
         .thenReturn(
             ImmutableMap.of(
