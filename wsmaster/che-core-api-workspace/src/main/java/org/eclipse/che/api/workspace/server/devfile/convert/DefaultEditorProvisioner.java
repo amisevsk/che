@@ -28,7 +28,10 @@ import org.eclipse.che.api.workspace.server.devfile.convert.component.ComponentF
 import org.eclipse.che.api.workspace.server.devfile.exception.DevfileException;
 import org.eclipse.che.api.workspace.server.model.impl.devfile.ComponentImpl;
 import org.eclipse.che.api.workspace.server.model.impl.devfile.DevfileImpl;
+import org.eclipse.che.api.workspace.server.spi.InfrastructureException;
+import org.eclipse.che.api.workspace.server.wsplugins.PluginFQNParser;
 import org.eclipse.che.api.workspace.server.wsplugins.model.ExtendedPluginFQN;
+import org.eclipse.che.api.workspace.server.wsplugins.model.PluginFQN;
 
 /**
  * Provision default editor if there is no any another editor and default plugins for it.
@@ -41,12 +44,14 @@ public class DefaultEditorProvisioner {
   private final String defaultEditor;
   private final Map<String, String> defaultPluginsToRefs;
   private final ComponentFQNParser componentFQNParser;
+  private final PluginFQNParser pluginFQNParser;
 
   @Inject
   public DefaultEditorProvisioner(
       @Named("che.workspace.devfile.default_editor") String defaultEditorRef,
       @Named("che.workspace.devfile.default_editor.plugins") String[] defaultPluginsRefs,
-      ComponentFQNParser componentFQNParser)
+      ComponentFQNParser componentFQNParser,
+      PluginFQNParser pluginFQNParser)
       throws DevfileException {
     this.defaultEditorRef = isNullOrEmpty(defaultEditorRef) ? null : defaultEditorRef;
     this.componentFQNParser = componentFQNParser;
@@ -110,9 +115,22 @@ public class DefaultEditorProvisioner {
       }
     }
 
-    missingPluginsIdToRef
-        .values()
-        .forEach(pluginRef -> components.add(new ComponentImpl(PLUGIN_COMPONENT_TYPE, pluginRef)));
+    for (String pluginRef : missingPluginsIdToRef.values()) {
+      ExtendedPluginFQN fqn;
+      try {
+         fqn = pluginFQNParser.evaluateFqn(pluginRef, null);
+      } catch (InfrastructureException e) {
+        throw new DevfileException(e.getMessage(), e);
+      }
+      ComponentImpl component = new ComponentImpl();
+      if (!isNullOrEmpty(fqn.getId())) {
+        component.setId(fqn.getId());
+      }
+      if (!isNullOrEmpty(fqn.getReference())) {
+        component.setReference(fqn.getReference());
+      }
+      components.add(component);
+    }
   }
 
   private String getPluginPublisherAndName(Component component, FileContentProvider contentProvider)
